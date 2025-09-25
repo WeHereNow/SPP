@@ -3,7 +3,7 @@ Configuration settings for SPP All-In-One Toolkit
 """
 import os
 from typing import Dict, List, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 @dataclass
 class NetworkConfig:
@@ -47,10 +47,10 @@ class UIConfig:
 @dataclass
 class AppConfig:
     """Main application configuration"""
-    network: NetworkConfig = NetworkConfig()
-    plc: PLCConfig = PLCConfig()
-    cognex: CognexConfig = CognexConfig()
-    ui: UIConfig = UIConfig()
+    network: NetworkConfig = field(default_factory=NetworkConfig)
+    plc: PLCConfig = field(default_factory=PLCConfig)
+    cognex: CognexConfig = field(default_factory=CognexConfig)
+    ui: UIConfig = field(default_factory=UIConfig)
     
     # File paths
     backup_dir: str = "backups"

@@ -7,8 +7,56 @@ from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from config import config
-from logger import get_logger, ProgressLogger
+try:
+    from config import config
+    from logger import get_logger, ProgressLogger
+except ImportError:
+    # Fallback for when modules aren't available
+    class MockConfig:
+        class PLCConfig:
+            default_ip = "11.200.0.10"
+            connection_timeout = 5.0
+            read_timeout = 10.0
+            max_retries = 3
+            retry_delay = 1.0
+        plc = PLCConfig()
+    
+    config = MockConfig()
+    
+    def get_logger(name, gui_widget=None):
+        import logging
+        return logging.getLogger(name)
+    
+    class ProgressLogger:
+        def __init__(self, logger, total_steps, description=""):
+            self.logger = logger
+            self.total_steps = total_steps
+            self.current_step = 0
+            self.description = description
+            self.start_time = time.time()
+            if description:
+                self.logger.info(f"Starting: {description}")
+        
+        def step(self, message=""):
+            self.current_step += 1
+            percentage = (self.current_step / self.total_steps) * 100
+            if message:
+                self.logger.info(f"[{percentage:.1f}%] {message}")
+            else:
+                self.logger.info(f"Progress: {self.current_step}/{self.total_steps} ({percentage:.1f}%)")
+        
+        def complete(self, message=""):
+            elapsed = time.time() - self.start_time
+            if message:
+                self.logger.info(f"Completed: {message} (took {elapsed:.2f}s)")
+            else:
+                self.logger.info(f"Progress complete (took {elapsed:.2f}s)")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
 
 try:
     from pylogix import PLC

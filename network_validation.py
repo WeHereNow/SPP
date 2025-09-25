@@ -11,8 +11,57 @@ from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-from config import config
-from logger import get_logger, ProgressLogger
+try:
+    from config import config
+    from logger import get_logger, ProgressLogger
+except ImportError:
+    # Fallback for when modules aren't available
+    class MockConfig:
+        class NetworkConfig:
+            default_probes = 3
+            default_retries = 2
+            default_timeout_ms = 700
+            require_min_replies = 1
+            arp_warmup_delay = 0.08
+            backoff_delay = 0.3
+        network = NetworkConfig()
+    
+    config = MockConfig()
+    
+    def get_logger(name, gui_widget=None):
+        import logging
+        return logging.getLogger(name)
+    
+    class ProgressLogger:
+        def __init__(self, logger, total_steps, description=""):
+            self.logger = logger
+            self.total_steps = total_steps
+            self.current_step = 0
+            self.description = description
+            self.start_time = time.time()
+            if description:
+                self.logger.info(f"Starting: {description}")
+        
+        def step(self, message=""):
+            self.current_step += 1
+            percentage = (self.current_step / self.total_steps) * 100
+            if message:
+                self.logger.info(f"[{percentage:.1f}%] {message}")
+            else:
+                self.logger.info(f"Progress: {self.current_step}/{self.total_steps} ({percentage:.1f}%)")
+        
+        def complete(self, message=""):
+            elapsed = time.time() - self.start_time
+            if message:
+                self.logger.info(f"Completed: {message} (took {elapsed:.2f}s)")
+            else:
+                self.logger.info(f"Progress complete (took {elapsed:.2f}s)")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
 
 @dataclass
 class DeviceResult:
