@@ -34,6 +34,7 @@ except ImportError:
     
     class ProgressLogger:
         def __init__(self, logger, total_steps, description=""):
+            import time
             self.logger = logger
             self.total_steps = total_steps
             self.current_step = 0
@@ -43,6 +44,7 @@ except ImportError:
                 self.logger.info(f"Starting: {description}")
         
         def step(self, message=""):
+            import time
             self.current_step += 1
             percentage = (self.current_step / self.total_steps) * 100
             if message:
@@ -51,6 +53,7 @@ except ImportError:
                 self.logger.info(f"Progress: {self.current_step}/{self.total_steps} ({percentage:.1f}%)")
         
         def complete(self, message=""):
+            import time
             elapsed = time.time() - self.start_time
             if message:
                 self.logger.info(f"Completed: {message} (took {elapsed:.2f}s)")

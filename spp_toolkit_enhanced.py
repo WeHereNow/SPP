@@ -12,10 +12,98 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 # Import our enhanced modules
-from config import config
-from logger import get_logger, ProgressLogger
-from network_validation import NetworkValidator, DeviceResult
-from plc_communication import EnhancedPLCValidator
+try:
+    from config import config
+    from logger import get_logger, ProgressLogger
+    from network_validation import NetworkValidator, DeviceResult
+    from plc_communication import EnhancedPLCValidator
+    ENHANCED_MODULES_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Enhanced modules not available: {e}")
+    print("Falling back to basic functionality...")
+    ENHANCED_MODULES_AVAILABLE = False
+    
+    # Create minimal fallbacks
+    class MockConfig:
+        class NetworkConfig:
+            default_probes = 3
+            default_retries = 2
+            default_timeout_ms = 700
+            require_min_replies = 1
+            arp_warmup_delay = 0.08
+            backoff_delay = 0.3
+        class PLCConfig:
+            default_ip = "11.200.0.10"
+            connection_timeout = 5.0
+            read_timeout = 10.0
+            max_retries = 3
+            retry_delay = 1.0
+        class UIConfig:
+            window_size = "1120x760"
+            window_title = "SPP All-In-One Toolkit — Enhanced"
+            log_max_lines = 10000
+            auto_scroll = True
+            theme = "dark"
+        network = NetworkConfig()
+        plc = PLCConfig()
+        ui = UIConfig()
+    
+    config = MockConfig()
+    
+    def get_logger(name, gui_widget=None):
+        import logging
+        return logging.getLogger(name)
+    
+    class ProgressLogger:
+        def __init__(self, logger, total_steps, description=""):
+            self.logger = logger
+            self.total_steps = total_steps
+            self.current_step = 0
+            self.description = description
+            if description:
+                self.logger.info(f"Starting: {description}")
+        
+        def step(self, message=""):
+            self.current_step += 1
+            percentage = (self.current_step / self.total_steps) * 100
+            if message:
+                self.logger.info(f"[{percentage:.1f}%] {message}")
+            else:
+                self.logger.info(f"Progress: {self.current_step}/{self.total_steps} ({percentage:.1f}%)")
+        
+        def complete(self, message=""):
+            if message:
+                self.logger.info(f"Completed: {message}")
+            else:
+                self.logger.info("Progress complete")
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+    
+    # Mock classes for enhanced functionality
+    class NetworkValidator:
+        def __init__(self):
+            pass
+        def validate_devices_concurrent(self, devices):
+            return []
+        def generate_report(self, results):
+            return "Enhanced network validation not available"
+        def export_results_csv(self, results, filename):
+            pass
+    
+    class DeviceResult:
+        pass
+    
+    class EnhancedPLCValidator:
+        def __init__(self, ip):
+            pass
+        def generate_comprehensive_report(self):
+            return "Enhanced PLC validation not available"
+        def close(self):
+            pass
 
 # Import original modules for compatibility
 try:
@@ -188,7 +276,10 @@ class EnhancedApp(tk.Tk):
         # Dependency status
         pylogix_status = "✓" if PYLOGIX_AVAILABLE else "✗"
         docx_status = "✓" if DOCX_AVAILABLE else "✗"
+        enhanced_status = "✓" if ENHANCED_MODULES_AVAILABLE else "✗"
         
+        ttk.Label(status_frame, text=f"Enhanced: {enhanced_status}", 
+                 foreground=SUCCESS if ENHANCED_MODULES_AVAILABLE else WARNING).pack(side=tk.RIGHT, padx=5)
         ttk.Label(status_frame, text=f"pylogix: {pylogix_status}", 
                  foreground=SUCCESS if PYLOGIX_AVAILABLE else ERROR).pack(side=tk.RIGHT, padx=5)
         ttk.Label(status_frame, text=f"docx: {docx_status}", 

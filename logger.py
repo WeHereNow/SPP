@@ -6,7 +6,7 @@ import sys
 import queue
 import threading
 from datetime import datetime
-from typing import Optional, TextIO
+from typing import Optional, TextIO, Dict
 import tkinter as tk
 from tkinter import ttk
 
