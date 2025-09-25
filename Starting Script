@@ -1,0 +1,999 @@
+#######################################################
+# Project: SPP Deploymeny Toolkit
+# Author: Jerry Miles (jerrmile@amazon.com)
+# Revision Date: 08/27/25
+# Revision History: 1.4
+# Technology: SmartPac SmartPaper USP
+#######################################################
+"""
+SPP All-In-One Toolkit
+
+What's included
+  1) Local Network Validation
+  2) IO Validation (Reads g_Par bits, safety, interlock, WMS connectivity)
+  3) Cognex Validation (backup current config; upload .cfg if different)
+  4) Faults • Warnings • Troubleshooting (parse DOCX mapping; Shows active Faults/Warnings from PLC and description for correction)
+
+Requirements
+- Python 3.9+
+- pylogix (PLC comms):         pip install pylogix
+- python-docx (DOCX parsing):  pip install python-docx
+- tkinter (bundled with Python; Linux may need: sudo apt-get install python3-tk)
+"""
+
+# ----------------------------- Standard library imports -----------------------------
+
+import os                      # For file path and directory operations
+import re                      # For regular expressions (parsing tags, parsing ping output)
+import sys                     # For stdout/stderr redirection into GUI log
+import time                    # For sleeps and simple time-based operations
+import socket                  # For TCP sockets used by Cognex DMCC
+import hashlib                 # For SHA-256 hashing of config bytes/files
+import ipaddress               # For validating IP address strings
+import platform                # For detecting OS to select correct ping flags
+import subprocess              # For safely running the system 'ping' command
+import threading               # For running long tasks off the GUI thread
+from datetime import datetime  # For timestamping backup filenames
+from typing import Dict, List, Tuple, Optional  # For type hints (clarity)
+import queue                   # For thread-safe log message passing to the GUI
+
+# ----------------------------- GUI imports (tkinter) --------------------------------
+
+import tkinter as tk                   # Base Tkinter GUI toolkit
+from tkinter import ttk                # Themed Tk widgets
+from tkinter import filedialog         # File chooser dialogs
+from tkinter import messagebox         # Message dialogs (errors, info)
+
+# ----------------------------- Optional deps (pylogix, python-docx) -----------------
+
+try:
+    from pylogix import PLC            # pylogix for Allen-Bradley PLC comms
+    PYLOGIX_AVAILABLE = True           # Flag set if import succeeded
+except Exception:
+    PYLOGIX_AVAILABLE = False          # Flag set if import failed (we warn in UI)
+
+try:
+    from docx import Document          # python-docx for reading the DOCX mapping
+    DOCX_AVAILABLE = True              # Flag set if import succeeded
+except Exception:
+    DOCX_AVAILABLE = False             # Flag set if import failed (we warn in UI)
+
+# ----------------------------- Dark palette (UI colors & fonts) ---------------------
+
+BG = "#0c0f13"             # Main window background (near black)
+PANEL = "#11161d"          # Panel background (slightly lighter)
+SURFACE = "#151b24"        # Surface color for entries, buttons
+RAISED = "#1a222d"         # Selected tabs, raised surfaces
+TEXT = "#e6eaf0"           # Primary text color
+SUBTEXT = "#a7b0bd"        # Secondary text color
+ACCENT = "#00d1ff"         # Accent color (cyan)
+ACCENT_DIM = "#00a0c0"     # Accent hover color
+BORDER = "#233142"         # Subtle border color
+ERROR = "#e74c3c"          # Error red for warnings
+MONO = ("Consolas", 10)    # Monospace font for logs
+UIFONT = ("Segoe UI", 10)  # UI font
+
+# ----------------------------- Program 1 device list (Network Validation) -----------
+
+PROGRAM1_DEVICES: Dict[str, str] = {        # Dict of IP -> Device description
+    "....200.0.1": "Cisco ISA 3000 NAT",
+    "11.200.0.2": "Cisco IE 2000 Switch",
+    "11.200.0.10": "AB CompactLogix SmartPac PLC",
+    "11.200.0.180": "AB PanelView Plus HMI",
+    "11.200.1.24": "1734 Point IO",
+    "11.200.1.25": "1734 Point IO",
+    "11.200.1.21": "Kinetix 300 Nip Roller Servo",
+    "11.200.1.22": "Kinetix 300 Gripper Servo",
+    "11.200.1.18": "Cognex DM262 Ship Verify Reader",
+    "11.200.1.19": "Cognex Tote Reader",
+    "11.200.1.20": "Kinetix 5700",
+    "11.200.1.30": "AL1120 IO Link",
+    "11.200.1.35": "Keyence IV4 Sensor",          
+}
+
+# ----------------------------- Program 2 tag maps (IO Validation) -------------------
+
+G_PAR_DESCRIPTIONS = {      # Bit descriptions for g_Par tag (0..31)
+    0: 'Pneumatic Roll Lift', 1: 'Webber Installed', 2: 'Disable Downstream Conveyor Interlock',
+    3: 'Printer Forward Sensor Disabled', 4: 'Not Used', 5: 'Disable OEE Starved Time Reporting',
+    6: 'Enable 3-Position Nip Valve', 7: 'Enable Auto Splice', 8: 'Use Extended Discharge Timer',
+    9: 'Bypass Guarding Fault', 10: 'Enable Machine Test Mode', 11: 'Enable Manual Bypass',
+    12: 'Disable Alarm Horn', 13: 'Enable Remote Start', 14: 'Enable Diagnostic Logging',
+    15: 'Enable Power Save Mode', 16: 'Enable Light Curtain Override', 17: 'Bypass Safety Interlock',
+    18: 'Allow Index During Alarm', 19: 'Enable Maintenance Mode', 20: 'Ignore Load Cell Faults',
+    21: 'Enable High-Speed Mode', 22: 'Use Alternative Recipe Logic', 23: 'Bypass Printer Faults',
+    24: 'Enable Label Verification', 25: 'Ignore Film Tracking Sensor', 26: 'Use Legacy Motion Control',
+    27: 'Enable Secondary Safety Check', 28: 'Disable Zero Speed Check', 29: 'Enable Slow Start Feature',
+    30: 'Use Backup PLC Settings', 31: 'Force E-Stop Override',
+}
+
+G_PAR1_DESCRIPTIONS = {     # Bit descriptions for g_Par1 tag (examples)
+    0: 'EU Paper Mode', 1: 'Jaw auto seal pressure adjustment',
+    2: 'Temporary fix for nip roller until safety code is fixed',
+    3: 'Enable/disable FIFE auto/manual mode', 4: 'Reduce speed for gripper 70%',
+    5: 'Pregessis paper testing', 6: 'Nip Roller Inrush Current Monitor for Low Roll Detection',
+}
+
+G_PARNEW_DESCRIPTIONS = {   # Bit descriptions for g_ParNew tag (selected bits)
+    0: 'Vision test active', 1: 'Variable Bag length test active',
+    2: 'Sealing Process Issue detected, divert to KO', 3: 'Vertical seal clearance active',
+    4: 'Paper Type Georgia Pacific - Enabled', 5: 'Paper Type Pregis - Enabled',
+    6: 'Horizontal & Vertical Seal Sensor test', 7: 'Tall item Ultrasonic value correction Enabled',
+    8: 'Inhibit Sealing by ASIN Sensors', 9: 'Horizontal Seal Sensor check for increasing bag size',
+    10: 'Disable Bag gripper, JawSeqCoolingRequest', 11: 'Copy 50 last PACK, SLAM messages',
+    12: 'Bypass the vertical keep out area warning', 13: 'Low Sealing Force Process failure',
+    14: 'Servo speed ramp for cold start', 15: 'Commissioning Mode / Dry Cycle Mode',
+    20: 'Dry cycling 16$Q bags', 21: 'Use 2 new top rear ultrasonics for 36$Q',
+}
+
+G_PARTEMP_DESCRIPTIONS = {  # Bit descriptions for g_parTemp tag (selected bits)
+    1: 'Disable OEE Starved time reporting', 2: 'Disable takeaway and reject conveyor jams stopping machine',
+    3: 'Allow disabling tamp interlock to light curtain', 5: 'Allow downstream into running timer > 15 sec',
+    6: 'Enable 2 Bag Mode', 7: 'Disable all takeaway and reject jam alarming',
+}
+
+SAFETY_TAGS = [             # Safety and E-Stop tag paths to read
+    'Program:SafetyProgram.SafetyIO.In.ESTOP_Relay1Feedback',
+    'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelA',
+    'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelB',
+    'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelA',
+    'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelB',
+    'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelA',
+    'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelB',
+    'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelA',
+    'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB',
+]
+
+INTERLOCK_TAG = 'IO.PLC.In.DownstreamConveyorEnabled'  # Interlock tag for downstream conveyor
+
+VERIFICATION_TAGS = [       # WMS & network connectivity tags to read
+    'H1_PACK_WMS_Connected',
+    'H2_SLAM1_WMS_Connected',
+    'NTP_Connected'
+]
+
+# ----------------------------- Program 3 (Cognex) constants & setup -----------------
+
+TELNET_PORT = 23                                  # Cognex DMCC default port
+CONNECT_TIMEOUT = 5.0                             # Seconds for socket connect
+IDLE_READ_TIMEOUT = 1.0                           # Idle timeout while reading
+OVERALL_READ_LIMIT_S = 20.0                       # Max total seconds to read
+MAX_BACKUP_BYTES = 50 * 1024**2                   # Safety cap: 50 MiB
+SLEEP_BETWEEN_COMMANDS = 0.2                      # Short delay between DMCC cmds
+socket.setdefaulttimeout(3.0)                     # Global default timeout for new sockets
+
+IAC, DONT, DO, WONT, WILL = 255, 254, 253, 252, 251  # Telnet control bytes
+
+COGNEX_DEVICES = [                                # List of Cognex readers to process
+    {"name": "Ship Verify Reader", "model": "Cognex DM262", "ip": "11.200.1.18"},
+    {"name": "KO Tote Reader", "model": "Cognex DataMan", "ip": "11.200.1.19"},
+]
+
+# ----------------------------- Thread-safe GUI logger -------------------------------
+
+class GuiLogger:
+    """Queue-based logger that safely updates a Tk Text widget from background threads."""
+    def __init__(self, text_widget: tk.Text):
+        self.text_widget = text_widget          # Reference to the Text widget
+        self.q: queue.Queue[str] = queue.Queue()# Queue for log messages
+        self._poll_queue()                      # Start polling the queue
+
+    def _poll_queue(self) -> None:
+        """Periodically move messages from the queue into the Text widget."""
+        try:
+            for _ in range(100):                # Up to 100 messages per poll (throttle)
+                msg = self.q.get_nowait()       # Get a message if available
+                self.text_widget.insert(tk.END, msg)  # Append to Text
+                self.text_widget.see(tk.END)    # Auto-scroll to bottom
+        except queue.Empty:
+            pass                                # Nothing to do this tick
+        self.text_widget.after(50, self._poll_queue)  # Schedule next poll
+
+    def write(self, s: str) -> None:
+        """File-like 'write' to be used as sys.stdout/sys.stderr."""
+        self.q.put(s)                           # Enqueue message to display in GUI
+
+    def flush(self) -> None:
+        """No-op for file-like interface compatibility."""
+        pass
+
+# ----------------------------- Stdout redirection helper ----------------------------
+
+class StdoutRedirector:
+    """Context manager to redirect stdout/stderr into the GUI logger."""
+    def __init__(self, logger: GuiLogger):
+        self.logger = logger                    # Logger to write into
+        self._old_out = None                    # Placeholder for original stdout
+        self._old_err = None                    # Placeholder for original stderr
+
+    def __enter__(self):
+        self._old_out, self._old_err = sys.stdout, sys.stderr  # Save originals
+        sys.stdout = self.logger                                   # Redirect out
+        sys.stderr = self.logger                                   # Redirect err
+        return self                                                # Return context
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout, sys.stderr = self._old_out, self._old_err    # Restore originals
+        return False                                             # Do not suppress exceptions
+
+# ----------------------------- Program 1: Network Validation ------------------------
+
+def _run_ping_blocking(ip: str, probes: int, timeout_ms: int) -> int:
+    """
+    Run a single OS 'ping' command and return the count of replies that
+    came from the exact target IP (strict match to reduce false positives).
+    """
+    is_windows = platform.system().lower() == "windows"          # Detect OS
+
+    if is_windows:                                               # Build Windows ping
+        cmd = ["ping", "-n", str(probes), "-w", str(timeout_ms), ip]
+    else:                                                        # Build POSIX ping
+        timeout_s = max(1, int(round(timeout_ms / 1000.0)))      # Convert ms to seconds
+        cmd = ["ping", "-c", str(probes), "-W", str(timeout_s), ip]
+
+    popen_kwargs = {}                                            # Extra Popen args
+    if is_windows:                                               # Hide console window on Windows
+        CREATE_NO_WINDOW = 0x08000000                            # Win32 flag
+        si = subprocess.STARTUPINFO()                            # Startup info struct
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW            # Tell Windows not to show
+        si.wShowWindow = 0                                       # SW_HIDE
+        popen_kwargs = {"creationflags": CREATE_NO_WINDOW, "startupinfo": si}
+
+    res = subprocess.run(                                        # Execute ping and capture output
+        cmd,
+        stdout=subprocess.PIPE,                                  # Capture stdout for parsing
+        stderr=subprocess.DEVNULL,                               # Ignore stderr
+        text=True,                                               # Decode as text
+        **popen_kwargs,
+    )
+
+    out = res.stdout or ""                                       # Ping output text
+    hits = 0                                                     # Count of good replies
+
+    if is_windows:                                               # Parse Windows output lines
+        for line in out.splitlines():
+            m = re.search(r"Reply from ([0-9.]+):", line, flags=re.IGNORECASE)
+            if m and m.group(1) == ip and "Destination host unreachable" not in line:
+                hits += 1
+    else:                                                        # Parse POSIX output lines
+        for line in out.splitlines():
+            m = re.search(r"bytes from\s+([0-9.]+)", line, flags=re.IGNORECASE)
+            if m and m.group(1) == ip:
+                hits += 1
+
+    return hits                                                  # Return count of exact-IP replies
+
+def ping_device(ip: str, retries: int = 1,
+                probes: int = 3, require: int = 1, timeout_ms: int = 700) -> bool:
+    """
+    Robust ping with ARP warm-up and strict reply counting to reduce false positives.
+    - Sends an ignored warm-up ping (1 probe) to populate ARP/neighbor caches.
+    - Runs 'probes' echoes and counts only replies from the exact target IP.
+    - Returns True only if hits >= require; wraps the whole set 'retries' times.
+    """
+    try:
+        _ = _run_ping_blocking(ip, probes=1, timeout_ms=timeout_ms)  # ARP warm-up (ignored)
+    except Exception:
+        pass                                                          # Ignore warm-up errors
+    time.sleep(0.08)                                                  # Tiny pause after warm-up
+
+    for attempt in range(1, retries + 1):                             # Attempt loop
+        print(f"  Attempt {attempt}: Pinging {ip} ({probes} probes, require ≥{require})...")
+        try:
+            hits = _run_ping_blocking(ip, probes=probes, timeout_ms=timeout_ms)  # Run probes
+            print(f"    Replies from target: {hits}/{probes}")                    # Show ratio
+            if hits >= require:                                                  # Enough hits?
+                print("    Result: Success\n")
+                return True                                                      # Mark reachable
+            else:
+                print("    Result: Failed\n")                                    # Not enough hits
+        except Exception as e:
+            print(f"    Error: {e}\n")                                           # Log error
+        time.sleep(0.3)                                                          # Backoff
+    return False                                                                  # All attempts failed
+
+def run_program1_network_validation() -> List[Tuple[str, str, str]]:
+    """Iterate through the static device list and report reachability."""
+    print("\n========== SPP IP VALIDATION REPORT ==========\n")
+    report: List[Tuple[str, str, str]] = []                                       # Collected results
+    for ip, name in PROGRAM1_DEVICES.items():                                     # Loop devices
+        print(f"Validating: {name} ({ip})")
+        status = "Reachable" if ping_device(ip, retries=2) else "Unreachable"     # Robust ping
+        report.append((ip, name, status))                                         # Save row
+    print("=" * 80)
+    print(f"{'IP Address':<16} {'Device Description':<45} {'Status'}")            # Table header
+    print("-" * 80)
+    for ip, name, status in report:                                               # Table rows
+        print(f"{ip:<16} {name:<45} {status}")
+    print("=" * 80)
+    print("\nValidation complete.\n")
+    return report                                                                  # Return list
+
+# ----------------------------- Program 2: IO Validation (pylogix) -------------------
+
+def is_valid_ip(ip_string: str) -> bool:
+    """Return True if ip_string is a valid IPv4/IPv6 address, else False."""
+    try:
+        ipaddress.ip_address(ip_string)                                            # Validate IP
+        return True
+    except ValueError:
+        return False
+
+def run_program2_io_validation(target_ip: str) -> None:
+    """Read g_Par bits, safety, interlock, and WMS connectivity from the PLC."""
+    if not PYLOGIX_AVAILABLE:                                                     # Check dependency
+        print("pylogix is not installed. Please run: pip install pylogix\n")
+        return
+    if not is_valid_ip(target_ip):                                                # Validate IP
+        print(f"Invalid IP address: {target_ip}\n")
+        return
+
+    with PLC() as comm:                                                           # Open pylogix PLC session
+        comm.IPAddress = target_ip                                                # Set target IP
+
+        tag_map = {                                                               # Tag -> bit-description map
+            'g_Par': G_PAR_DESCRIPTIONS,
+            'g_Par1': G_PAR1_DESCRIPTIONS,
+            'g_ParNew': G_PARNEW_DESCRIPTIONS,
+            'g_parTemp': G_PARTEMP_DESCRIPTIONS,
+        }
+
+        all_gpar_on: Dict[str, List[str]] = {}                                    # Results per tag
+
+        for tag, descs in tag_map.items():                                        # Loop tags
+            result = comm.Read(tag)                                               # Read tag value
+            if result.Status != 'Success':                                        # Check read status
+                print(f"Failed to read {tag}: {result.Status}")
+                continue
+            value = result.Value                                                  # Tag integer value
+            bits = [f"Bit {b}: {d}" for b, d in descs.items() if value & (1 << b)]# On bits only
+            all_gpar_on[tag] = bits                                               # Store list
+
+        safety_results = comm.Read(SAFETY_TAGS)                                   # Read safety tags
+        interlock_result = comm.Read(INTERLOCK_TAG)                               # Read interlock tag
+        verification_results = comm.Read(VERIFICATION_TAGS)                       # Read WMS/network tags
+
+    print("\n======= STATUS REPORT =======\n")
+    for tag, bits in all_gpar_on.items():                                         # Print g_Par sections
+        print(f"{tag.upper()} BITS ON:")
+        print(" None" if not bits else "\n".join([f" - {x}" for x in bits]))
+        print()
+    print("SAFETY & E-STOP STATUS:")
+    for tag, result in zip(SAFETY_TAGS, safety_results):                          # Print safety values
+        status = 'ON' if result.Value else 'OFF'
+        print(f" {tag}: {status}")
+    print(f"\nINTERLOCK STATUS:\n {INTERLOCK_TAG}: {'ENABLED' if interlock_result.Value else 'DISABLED'}")
+    print("\nWMS & NETWORK CONNECTIVITY:")
+    for tag, result in zip(VERIFICATION_TAGS, verification_results):              # Print WMS network
+        status = 'CONNECTED' if result.Value else 'DISCONNECTED'
+        print(f" {tag}: {status}")
+    print("\n======= END OF REPORT =======\n")
+
+# ----------------------------- Program 3: Cognex DMCC helpers -----------------------
+
+def negotiate_all_off(sock: socket.socket, data: bytes) -> bytes:
+    """Respond WONT/DONT to all Telnet options and strip Telnet negotiations."""
+    out = bytearray()                                                             # Output buffer
+    i, n = 0, len(data)                                                           # Index and length
+    while i < n:                                                                  # Iterate bytes
+        b = data[i]
+        if b == IAC:                                                              # Telnet IAC (255)
+            if i + 2 < n:                                                         # Have cmd + opt?
+                cmd, opt = data[i + 1], data[i + 2]
+                if cmd == DO:                                                     # Peer asks DO
+                    sock.sendall(bytes([IAC, WONT, opt]))                         # We reply WONT
+                elif cmd == WILL:                                                 # Peer says WILL
+                    sock.sendall(bytes([IAC, DONT, opt]))                         # We reply DONT
+                i += 3                                                            # Skip 3-byte seq
+            elif i + 1 < n and data[i + 1] == IAC:                                # Escaped 0xFF
+                out.append(IAC)                                                   # Append literal 255
+                i += 2
+            else:
+                i += 1                                                            # Truncated IAC; skip
+        else:
+            out.append(b)                                                         # Non-IAC data byte
+            i += 1
+    return bytes(out)                                                             # Return filtered data
+
+def recv_all_with_timeouts(sock: socket.socket,
+                           idle_timeout: float = IDLE_READ_TIMEOUT,
+                           overall_limit_s: float = OVERALL_READ_LIMIT_S,
+                           max_bytes: int = MAX_BACKUP_BYTES) -> bytes:
+    """Read from socket until idle or overall timeout, with Telnet negotiation handling."""
+    sock.setblocking(False)                                                       # Non-blocking mode
+    chunks: List[bytes] = []                                                      # Buffer chunks
+    total = 0                                                                     # Bytes accumulated
+    start = last = time.time()                                                    # Timers
+    while True:
+        now = time.time()                                                         # Current time
+        if now - start > overall_limit_s:                                         # Overall limit?
+            break
+        if now - last > idle_timeout:                                             # Idle limit?
+            break
+        try:
+            data = sock.recv(8192)                                                # Read up to 8 KB
+            if data:
+                last = now                                                        # Update last activity
+                filtered = negotiate_all_off(sock, data)                          # Strip Telnet opts
+                if filtered:
+                    chunks.append(filtered)                                       # Save filtered data
+                    total += len(filtered)                                        # Count bytes
+                    if total >= max_bytes:                                        # Safety cap
+                        break
+            else:
+                break                                                             # Peer closed
+        except BlockingIOError:
+            time.sleep(0.05)                                                      # Brief yield
+        except socket.timeout:
+            break                                                                  # Treat timeout as idle
+    return b"".join(chunks)                                                       # Return combined data
+
+def dmcc_send(sock: socket.socket, line: str) -> None:
+    """Send one DMCC command line terminated with CRLF."""
+    sock.sendall((line + "\r\n").encode("utf-8"))                                 # Send command
+
+def dmcc_backup(ip: str) -> bytes:
+    """Connect to a Cognex reader and return bytes from DEVICE.BACKUP."""
+    with socket.create_connection((ip, TELNET_PORT), timeout=CONNECT_TIMEOUT) as s:  # Open socket
+        try:
+            initial = s.recv(4096)                                                # Drain banner/opts
+            if initial:
+                _ = negotiate_all_off(s, initial)                                 # Strip Telnet noise
+        except socket.timeout:
+            pass
+        dmcc_send(s, "||>DEVICE.BACKUP")                                          # Ask for backup
+        time.sleep(SLEEP_BETWEEN_COMMANDS)                                        # Small pause
+        return recv_all_with_timeouts(s)                                          # Collect bytes
+
+def build_config_load_bytes(cfg_path: str) -> bytes:
+    """Build the CONFIG.LOAD payload: '||>CONFIG.LOAD <len>\\r\\n' + <file bytes>."""
+    with open(cfg_path, "rb") as f:                                               # Open file
+        cfg = f.read()                                                            # Read all bytes
+    header = f"||>CONFIG.LOAD {len(cfg)}\r\n".encode("utf-8")                     # Build header
+    return header + cfg                                                           # Concatenate
+
+def push_config(ip: str, load_bytes: bytes) -> None:
+    """Send CONFIG.LOAD, then CONFIG.SAVE, REBOOT, and a BEEP to the Cognex reader."""
+    with socket.create_connection((ip, TELNET_PORT), timeout=CONNECT_TIMEOUT) as s:  # Open socket
+        try:
+            initial = s.recv(4096)                                                # Drain banner
+            if initial:
+                _ = negotiate_all_off(s, initial)                                 # Strip Telnet opts
+        except socket.timeout:
+            pass
+        print(" Loading config (CONFIG.LOAD)...")
+        s.sendall(load_bytes)                                                     # Send entire load
+        time.sleep(SLEEP_BETWEEN_COMMANDS)                                        # Pause
+        print(" Saving configuration (CONFIG.SAVE)...")
+        dmcc_send(s, "||>CONFIG.SAVE")                                            # Save config
+        time.sleep(SLEEP_BETWEEN_COMMANDS)                                        # Pause
+        print(" Rebooting reader (REBOOT)...")
+        dmcc_send(s, "||>REBOOT")                                                 # Reboot reader
+        time.sleep(0.5)                                                           # Short wait
+        print(" Beeping reader (BEEP 3,2)...")
+        dmcc_send(s, "||>BEEP 3,2")                                               # Audible feedback
+        time.sleep(SLEEP_BETWEEN_COMMANDS)                                        # Pause
+
+def sha256_bytes(b: bytes) -> str:
+    """Return the SHA-256 hex digest for the given bytes."""
+    return hashlib.sha256(b).hexdigest()                                          # Compute digest
+
+def sha256_file(path: str) -> str:
+    """Return the SHA-256 hex digest of a file at 'path'."""
+    h = hashlib.sha256()                                                          # New hasher
+    with open(path, "rb") as f:                                                   # Open file
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):                      # Read 1 MiB chunks
+            h.update(chunk)                                                       # Update hash
+    return h.hexdigest()                                                          # Hex digest
+
+def save_backup_bytes(ip: str, device_name: str, data: bytes) -> str:
+    """Save backup bytes to ./backups/<Device>_<IP>_<timestamp>.cfg and return the path."""
+    os.makedirs("backups", exist_ok=True)                                         # Ensure folder
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")                                 # Timestamp
+    safe = device_name.replace(" ", "_")                                          # Safe filename
+    fname = f"backups/{safe}_{ip}_{ts}.cfg"                                       # Build path
+    with open(fname, "wb") as f:                                                  # Open file
+        f.write(data)                                                             # Write bytes
+    return fname                                                                  # Return path
+
+def process_cognex_device(ip: str, name: str, cfg_path: str) -> None:
+    """Backup current config, compare with local .cfg, and upload if different."""
+    print(f"\n=== {name} ({ip}) ===")
+    backup = b""                                                                  # Placeholder for backup bytes
+    try:
+        print(" Reading current configuration (DEVICE.BACKUP)...")
+        backup = dmcc_backup(ip)                                                  # Fetch backup
+        if not backup:
+            print(" Warning: No backup data received (device returned empty).")
+        else:
+            path = save_backup_bytes(ip, name, backup)                            # Save backup
+            print(f" Backup saved: {path} ({len(backup)} bytes)")
+    except Exception as e:
+        print(f" Error during backup from {ip}: {e}")                             # Backup error
+
+    if not os.path.isfile(cfg_path):                                              # Validate local cfg path
+        print(f" Config file not found: {cfg_path}")
+        return
+
+    local_hash = sha256_file(cfg_path)                                            # Hash local cfg
+    print(f" Local file: {cfg_path}")
+    print(f" Local SHA-256: {local_hash}")
+
+    if backup:                                                                    # If we have remote bytes
+        remote_hash = sha256_bytes(backup)                                        # Hash remote
+        print(f" Remote SHA-256: {remote_hash}")
+        if remote_hash == local_hash:                                             # Compare hashes
+            print(" Result: Identical configuration detected. Skipping upload.\n")
+            return
+        else:
+            print(" Result: Config differs. Proceeding to upload...")
+    else:
+        print(" Result: No remote config available for comparison. Proceeding to upload...")
+
+    try:
+        load_bytes = build_config_load_bytes(cfg_path)                            # Build LOAD payload
+        push_config(ip, load_bytes)                                               # Send to device
+        print(" Done: Config loaded, saved, and reboot command sent.\n")
+    except Exception as e:
+        print(f" Error pushing config to {ip}: {e}\n")                            # Upload error
+
+# ----------------------------- Faults/Warns: DOCX parsing + PLC scan ----------------
+
+TAG_RE = re.compile(r"\{\[PLC\](Alarm_(Fault|Warning))\[(\d+)\]\.(\d+)\}")        # Matches tags like {[PLC]Alarm_Fault[0].3}
+
+def parse_faults_docx(docx_path: str) -> List[Dict[str, object]]:
+    """
+    Parse a DOCX with tables containing columns: TAG | Description | Resolution.
+    Returns entries of {source, index, bit, tag, description, resolution}.
+    """
+    entries: List[Dict[str, object]] = []                                         # Output list
+    if not DOCX_AVAILABLE:                                                        # Dependency check
+        raise RuntimeError("python-docx not installed. Install with: pip install python-docx")
+    doc = Document(docx_path)                                                     # Load DOCX
+    for tbl in doc.tables:                                                        # Iterate tables
+        for r_i, row in enumerate(tbl.rows):                                      # Iterate rows
+            if r_i == 0:
+                continue                                                          # Skip header
+            cells = row.cells                                                     # Cells in row
+            if len(cells) < 3:
+                continue                                                          # Need at least 3 columns
+            raw_tag = (cells[0].text or "").strip()                               # TAG column
+            desc = " ".join((cells[1].text or "").split())                        # Description (normalized)
+            res  = " ".join((cells[2].text or "").split())                        # Resolution (normalized)
+            m = TAG_RE.search(raw_tag)                                            # Parse tag with regex
+            if not m:
+                continue                                                          # Skip unrecognized rows
+            source = m.group(1)                                                   # Alarm_Fault or Alarm_Warning
+            arr_idx = int(m.group(3))                                             # Array index
+            bit_idx = int(m.group(4))                                             # Bit index
+            entries.append({                                                       # Append entry
+                "source": source,
+                "index": arr_idx,
+                "bit": bit_idx,
+                "tag": raw_tag,
+                "description": desc,
+                "resolution": res,
+            })
+    return entries                                                                 # Return parsed entries
+
+def scan_faults_from_plc(ip: str, entries: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    """
+    Given PLC IP and parsed entries, read required array elements and return ACTIVE entries.
+    """
+    if not PYLOGIX_AVAILABLE:                                                     # Dependency check
+        print("pylogix is not installed. Please run: pip install pylogix\n")
+        return []
+
+    need_fault_idx = sorted({e["index"] for e in entries if e["source"] == "Alarm_Fault"})   # Fault array indices
+    need_warn_idx  = sorted({e["index"] for e in entries if e["source"] == "Alarm_Warning"}) # Warning array indices
+
+    fault_tags = [f"Alarm_Fault[{i}]" for i in need_fault_idx]                    # Tag names to read
+    warn_tags  = [f"Alarm_Warning[{i}]" for i in need_warn_idx]                   # Tag names to read
+
+    values: Dict[str, Dict[int, int]] = {"Alarm_Fault": {}, "Alarm_Warning": {}}  # Storage for values
+
+    with PLC() as comm:                                                           # Open pylogix session
+        comm.IPAddress = ip                                                       # Set target IP
+
+        if fault_tags:                                                            # Read fault arrays
+            results = comm.Read(fault_tags)
+            for tag, res, idx in zip(fault_tags, results, need_fault_idx):
+                if res.Status == "Success":
+                    try:
+                        values["Alarm_Fault"][idx] = int(res.Value)               # Coerce to int
+                    except Exception:
+                        print(f" Failed to parse value for {tag}")
+                else:
+                    print(f" Read failed: {tag} -> {res.Status}")
+
+        if warn_tags:                                                             # Read warning arrays
+            results = comm.Read(warn_tags)
+            for tag, res, idx in zip(warn_tags, results, need_warn_idx):
+                if res.Status == "Success":
+                    try:
+                        values["Alarm_Warning"][idx] = int(res.Value)             # Coerce to int
+                    except Exception:
+                        print(f" Failed to parse value for {tag}")
+                else:
+                    print(f" Read failed: {tag} -> {res.Status}")
+
+    active: List[Dict[str, object]] = []                                          # Active entries to return
+    for e in entries:                                                             # Evaluate each mapping
+        src = e["source"]                                                         # Alarm_Fault or Alarm_Warning
+        idx = int(e["index"])                                                     # Array index
+        bit = int(e["bit"])                                                       # Bit index
+        val = values.get(src, {}).get(idx)                                        # Array value (int)
+        if val is None:
+            continue                                                              # Missing read; skip
+        if val & (1 << bit):                                                      # Test bit
+            active.append(e)                                                      # Append active entry
+
+    return active                                                                 # Return list of active mappings
+
+# ----------------------------- Dark theme setup -------------------------------------
+
+def apply_dark_theme(root: tk.Tk) -> ttk.Style:
+    """Apply a cohesive dark theme to ttk/Tk widgets."""
+    root.configure(bg=BG)                                                         # Window background
+    root.option_add("*Font", UIFONT)                                              # Default font
+    root.option_add("*TCombobox*Listbox*Font", UIFONT)                            # Combo dropdown font
+    style = ttk.Style(root)                                                       # ttk style object
+    style.theme_use("clam")                                                       # Use 'clam' theme
+    style.configure(".", background=BG, foreground=TEXT, fieldbackground=SURFACE) # Base style
+    style.configure("TFrame", background=PANEL)                                   # Frames
+    style.configure("TLabel", background=PANEL, foreground=TEXT)                  # Labels
+    style.configure("TNotebook", background=BG, borderwidth=0)                    # Notebook base
+    style.configure("TNotebook.Tab", background=SURFACE, foreground=SUBTEXT,
+                    padding=(14, 8), borderwidth=0)                               # Tabs
+    style.map("TNotebook.Tab",
+              background=[("selected", RAISED)],
+              foreground=[("selected", TEXT)])                                     # Selected tab look
+    style.configure("TButton", background=SURFACE, foreground=TEXT,
+                    borderwidth=1, padding=(12, 8))                                # Buttons
+    style.map("TButton",
+              background=[("active", RAISED)],
+              foreground=[("disabled", "#6b7280")])                                # Button states
+    style.configure("Accent.TButton", background=ACCENT, foreground="#001018",
+                    borderwidth=0, padding=(14, 9))                                # Accent button
+    style.map("Accent.TButton",
+              background=[("active", ACCENT_DIM), ("disabled", "#335561")],
+              foreground=[("disabled", "#122027")])                                # Accent states
+    style.configure("TEntry", fieldbackground=SURFACE, foreground=TEXT,
+                    insertcolor=TEXT)                                              # Entries
+    style.configure("Vertical.TScrollbar", background=SURFACE, troughcolor=BG,
+                    bordercolor=BORDER, arrowcolor=TEXT)                           # Scrollbars
+    style.configure("TSeparator", background=BORDER)                               # Separators
+    return style                                                                   # Return style
+
+# ----------------------------- GUI Application --------------------------------------
+
+class App(tk.Tk):
+    """Main Tk application: builds tabs and routes actions to background workers."""
+    def __init__(self):
+        super().__init__()                                                         # Init Tk
+        self.title("SPP All-In-One Toolkit — Dark")                                # Window title
+        self.geometry("1120x760")                                                  # Window size
+        self.style = apply_dark_theme(self)                                        # Apply dark theme
+        self._build_header()                                                       # Build header
+
+        self.fault_entries: List[Dict[str, object]] = []                           # Parsed DOCX rows
+        self.fault_docx_path: Optional[str] = None                                 # Selected DOCX path
+
+        self.notebook = ttk.Notebook(self)                                         # Create notebook
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)            # Pack notebook
+
+        self._build_tab_program1()                                                 # Network tab
+        self._build_tab_program2()                                                 # IO Validation tab
+        self._build_tab_program3()                                                 # Cognex tab
+        self._build_tab_faults()                                                   # Faults/Warns tab
+
+    def _build_header(self) -> None:
+        """Top header bar with accent line and subtitle."""
+        header = ttk.Frame(self)                                                   # Header frame
+        header.configure(style="TFrame")                                           # Apply style
+        header.pack(fill=tk.X, padx=10, pady=(10, 0))                              # Pack header
+        tk.Frame(header, height=3, bg=ACCENT, bd=0, highlightthickness=0) \
+            .pack(fill=tk.X, side=tk.TOP)                                          # Accent line
+        title_row = ttk.Frame(header)                                              # Row for labels
+        title_row.pack(fill=tk.X, pady=(10, 8))                                    # Pack row
+        ttk.Label(title_row, text="SPP All-In-One Toolkit",
+                  font=("Segoe UI Semibold", 14)).pack(side=tk.LEFT)               # Title
+        ttk.Label(title_row,
+                  text="Network • PLC • Cognex • Faults/Warns",
+                  foreground=SUBTEXT).pack(side=tk.LEFT, padx=12)                  # Subtitle
+
+    def _make_text_panel(self, parent: tk.Widget) -> Tuple[tk.Text, GuiLogger]:
+        """Create a scrollable Text area plus a GuiLogger bound to it."""
+        frame = ttk.Frame(parent)                                                  # Container frame
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)                    # Pack frame
+        text = tk.Text(                                                            # Text widget for logs
+            frame, wrap="word", font=MONO, bg="#0b1118", fg=TEXT,
+            insertbackground=TEXT, relief="flat", padx=10, pady=10
+        )
+        scroll = ttk.Scrollbar(frame, orient="vertical",
+                               command=text.yview, style="Vertical.TScrollbar")    # Vertical scrollbar
+        text.configure(yscrollcommand=scroll.set)                                  # Bind scroll
+        text.grid(row=0, column=0, sticky="nsew")                                  # Grid text
+        scroll.grid(row=0, column=1, sticky="ns")                                  # Grid scrollbar
+        frame.rowconfigure(0, weight=1)                                            # Make resizable
+        frame.columnconfigure(0, weight=1)                                         # Make resizable
+        logger = GuiLogger(text)                                                   # Create logger
+        return text, logger                                                        # Return both
+
+    def _build_toolbar(self, parent: tk.Widget, title: str, subtitle: str = "") -> ttk.Frame:
+        """Create a toolbar area with a bold title, optional subtitle, and separator."""
+        bar = ttk.Frame(parent)                                                    # Toolbar frame
+        bar.pack(fill=tk.X, padx=10, pady=(10, 0))                                 # Pack toolbar
+        ttk.Separator(bar).pack(fill=tk.X, side=tk.BOTTOM, pady=(8, 0))            # Bottom separator
+        title_row = ttk.Frame(bar)                                                 # Title row
+        title_row.pack(fill=tk.X, pady=(8, 6))                                     # Pack row
+        ttk.Label(title_row, text=title, font=("Segoe UI Semibold", 12)) \
+            .pack(side=tk.LEFT)                                                    # Title label
+        if subtitle:                                                               # Optional subtitle
+            ttk.Label(title_row, text=subtitle, foreground=SUBTEXT) \
+                .pack(side=tk.LEFT, padx=10)
+        return bar                                                                 # Return toolbar
+
+    # ---------- Tab 1: Network Validation ----------
+    def _build_tab_program1(self) -> None:
+        """Create the Network Validation tab UI."""
+        tab = ttk.Frame(self.notebook)                                             # New tab frame
+        self.notebook.add(tab, text="Network Validation")                          # Add tab
+        toolbar = self._build_toolbar(
+            tab,
+            "Network Validation",
+            "Multi-probe ping with strict reply matching"
+        )
+        self.btn1_run = ttk.Button(                                                # Run button
+            toolbar, text="Run Network Validation",
+            style="Accent.TButton", command=self._on_run_program1
+        )
+        self.btn1_run.pack(side=tk.LEFT, padx=6, pady=6)                           # Pack button
+        ttk.Frame(toolbar).pack(side=tk.LEFT, expand=True)                         # Spacer
+        self.text1, self.logger1 = self._make_text_panel(tab)                      # Log panel
+
+    # ---------- Tab 2: IO Validation ----------
+    def _build_tab_program2(self) -> None:
+        """Create the IO Validation tab UI."""
+        tab = ttk.Frame(self.notebook)                                             # New tab frame
+        self.notebook.add(tab, text="IO Validation (PLC)")                         # Add tab
+        toolbar = self._build_toolbar(
+            tab,
+            "IO Validation",
+            "Reads g_Par bits, safety, interlock, WMS connectivity"
+        )
+        ttk.Label(toolbar, text="PLC IP Address:") \
+            .pack(side=tk.LEFT, padx=(0, 6))                                       # IP label
+        self.entry2_ip = ttk.Entry(toolbar, width=24)                              # IP entry
+        self.entry2_ip.insert(0, "11.200.0.10")                                    # Default PLC IP
+        self.entry2_ip.pack(side=tk.LEFT, padx=(0, 10))                            # Pack entry
+        self.btn2_run = ttk.Button(                                                # Run button
+            toolbar, text="Run IO Validation",
+            style="Accent.TButton", command=self._on_run_program2
+        )
+        self.btn2_run.pack(side=tk.LEFT, padx=6, pady=6)                           # Pack button
+        if not PYLOGIX_AVAILABLE:                                                  # Warn if missing
+            ttk.Label(toolbar, foreground=ERROR,
+                      text="pylogix not installed • pip install pylogix") \
+                .pack(side=tk.LEFT, padx=12)
+        self.text2, self.logger2 = self._make_text_panel(tab)                      # Log panel
+
+    # ---------- Tab 3: Cognex Validation ----------
+    def _build_tab_program3(self) -> None:
+        """Create the Cognex Validation tab UI."""
+        tab = ttk.Frame(self.notebook)                                             # New tab frame
+        self.notebook.add(tab, text="Cognex Validation")                           # Add tab
+        toolbar = self._build_toolbar(
+            tab,
+            "Cognex Validation",
+            "Backup current config and upload selected .cfg if different"
+        )
+        self.btn3_run = ttk.Button(                                                # Run button
+            toolbar, text="Run Backup and Upload",
+            style="Accent.TButton", command=self._on_run_program3
+        )
+        self.btn3_run.pack(side=tk.LEFT, padx=6, pady=6)                           # Pack button
+        ttk.Frame(toolbar).pack(side=tk.LEFT, expand=True)                         # Spacer
+
+        top = ttk.Frame(tab)                                                       # Grid area
+        top.pack(fill=tk.X, padx=10, pady=6)                                       # Pack grid area
+        header = ttk.Frame(top)                                                    # Header row
+        header.pack(fill=tk.X, pady=(6, 2))                                        # Pack header
+        ttk.Label(header, text="Device", width=28, foreground=SUBTEXT) \
+            .pack(side=tk.LEFT, padx=4)                                            # Device header
+        ttk.Label(header, text="IP", width=18, foreground=SUBTEXT) \
+            .pack(side=tk.LEFT, padx=4)                                            # IP header
+        ttk.Label(header, text="Config File (.cfg)", width=48, foreground=SUBTEXT) \
+            .pack(side=tk.LEFT, padx=4)                                            # File header
+
+        self.program3_path_vars: List[tk.StringVar] = []                           # Store per-row file vars
+        for dev in COGNEX_DEVICES:                                                 # Each device row
+            row = ttk.Frame(top)                                                   # Row frame
+            row.pack(fill=tk.X, pady=3)                                            # Pack row
+            ttk.Label(row, text=f"{dev['name']} ({dev['model']})", width=28) \
+                .pack(side=tk.LEFT, padx=4)                                        # Device label
+            ttk.Label(row, text=dev["ip"], width=18, foreground=SUBTEXT) \
+                .pack(side=tk.LEFT, padx=4)                                        # IP label
+            var = tk.StringVar()                                                   # StringVar for file path
+            var.set("SHIPconfig.cfg" if "Ship" in dev["name"]
+                    else ("KOconfig.cfg" if "KO" in dev["name"] else ""))          # Sensible default
+            self.program3_path_vars.append(var)                                    # Save variable
+            entry = ttk.Entry(row, textvariable=var, width=54)                     # Path entry
+            entry.pack(side=tk.LEFT, padx=4)                                       # Pack entry
+
+            def _browse(v=var):                                                    # File browse handler
+                p = filedialog.askopenfilename(
+                    title="Select .cfg file",
+                    filetypes=[("CFG files", "*.cfg"), ("All files", "*.*")]
+                )
+                if p:
+                    v.set(p)                                                       # Set chosen path
+
+            ttk.Button(row, text="Browse", command=_browse) \
+                .pack(side=tk.LEFT, padx=4)                                        # Browse button
+
+        self.text3, self.logger3 = self._make_text_panel(tab)                      # Log panel
+
+    # ---------- Tab 4: Faults • Warnings • Troubleshooting ----------
+    def _build_tab_faults(self) -> None:
+        """Create the Faults/Warns/Troubleshooting tab UI."""
+        tab = ttk.Frame(self.notebook)                                             # New tab frame
+        self.notebook.add(tab, text="Faults • Warnings • Troubleshooting")         # Add tab
+
+        toolbar = self._build_toolbar(
+            tab,
+            "Faults / Warnings Troubleshooting",
+            "Load .DOCX for mapping → enter PLC IP → Scan PLC to list active items with descriptions & resolutions"
+        )
+
+        ttk.Label(toolbar, text="PLC IP:") \
+            .pack(side=tk.LEFT, padx=(0, 6))                                       # PLC IP label
+        self.entry4_ip = ttk.Entry(toolbar, width=24)                              # PLC IP entry
+        self.entry4_ip.insert(0, "11.200.0.10")                                    # Default
+        self.entry4_ip.pack(side=tk.LEFT, padx=(0, 12))                            # Pack entry
+
+        self.btn4_load = ttk.Button(toolbar, text="Load Fault Doc(DOCX)",
+                                    command=self._on_load_faults_docx)             # Load DOCX button
+        self.btn4_load.pack(side=tk.LEFT, padx=6, pady=6)                          # Pack button
+
+        self.faults_status_var = tk.StringVar(value="No mapping loaded")           # Status text
+        ttk.Label(toolbar, textvariable=self.faults_status_var, foreground=SUBTEXT) \
+            .pack(side=tk.LEFT, padx=10)                                           # Status label
+
+        self.btn4_scan = ttk.Button(toolbar, text="Scan PLC", style="Accent.TButton",
+                                    command=self._on_run_faults_scan)              # Scan button
+        self.btn4_scan.pack(side=tk.RIGHT, padx=6, pady=6)                         # Pack button
+
+        if not PYLOGIX_AVAILABLE or not DOCX_AVAILABLE:                            # Dependency warnings
+            warn_txt = []
+            if not PYLOGIX_AVAILABLE:
+                warn_txt.append("pylogix: pip install pylogix")
+            if not DOCX_AVAILABLE:
+                warn_txt.append("python-docx: pip install python-docx")
+            ttk.Label(toolbar, foreground=ERROR, text=" • ".join(warn_txt)) \
+                .pack(side=tk.RIGHT, padx=12)
+
+        self.text4, self.logger4 = self._make_text_panel(tab)                      # Log panel
+
+    # ---------- Generic threaded runner ----------
+    def _run_in_thread(self, button: ttk.Button, target, logger: GuiLogger, *args, **kwargs) -> None:
+        """Disable the triggering button, run 'target' in a daemon thread, re-enable on finish."""
+        button.configure(state=tk.DISABLED)                                        # Disable button
+
+        def worker():                                                              # Worker closure
+            with StdoutRedirector(logger):                                         # Redirect prints to GUI
+                try:
+                    target(*args, **kwargs)                                        # Run target function
+                except Exception as e:
+                    print(f"\nUnexpected error: {e}\n")                            # Log exceptions
+            self.after(0, lambda: button.configure(state=tk.NORMAL))               # Re-enable button
+
+        threading.Thread(target=worker, daemon=True).start()                       # Start worker thread
+
+    # ---------- Handlers: Tab 1 (Network) ----------
+    def _on_run_program1(self) -> None:
+        """Handler for 'Run Network Validation'."""
+        self.text1.delete("1.0", tk.END)                                           # Clear log
+        self._run_in_thread(self.btn1_run, run_program1_network_validation, self.logger1)  # Run
+
+    # ---------- Handlers: Tab 2 (IO Validation) ----------
+    def _on_run_program2(self) -> None:
+        """Handler for 'Run IO Validation'."""
+        self.text2.delete("1.0", tk.END)                                           # Clear log
+        ip = self.entry2_ip.get().strip()                                          # Read IP
+        self._run_in_thread(self.btn2_run, run_program2_io_validation, self.logger2, ip)   # Run
+
+    # ---------- Handlers: Tab 3 (Cognex) ----------
+    def _on_run_program3(self) -> None:
+        """Handler for 'Run Backup and Upload' on Cognex tab."""
+        self.text3.delete("1.0", tk.END)                                           # Clear log
+        tasks: List[Tuple[str, str, str]] = []                                     # (ip, name, cfg)
+        for dev, var in zip(COGNEX_DEVICES, self.program3_path_vars):              # Build tasks
+            tasks.append((dev["ip"], dev["name"], var.get().strip()))
+
+        def run_all():                                                             # Worker function
+            print("Starting DataMan config backup compare upload tool...\n")
+            for ip, name, cfg in tasks:                                            # Process each reader
+                process_cognex_device(ip, name, cfg)
+            print("\nAll devices processed.\n")
+
+        self._run_in_thread(self.btn3_run, run_all, self.logger3)                  # Run worker
+
+    # ---------- Handlers: Tab 4 (Faults/Warns) ----------
+    def _on_load_faults_docx(self) -> None:
+        """Pick the DOCX mapping file and parse it into entries."""
+        if not DOCX_AVAILABLE:                                                     # Dependency check
+            messagebox.showerror("Missing dependency", "Please install python-docx:\n\npip install python-docx")
+            return
+        path = filedialog.askopenfilename(                                         # Open file dialog
+            title="Select DOCX mapping",
+            filetypes=[("Word documents", "*.docx"), ("All files", "*.*")]
+        )
+        if not path:
+            return                                                                 # User cancelled
+        try:
+            entries = parse_faults_docx(path)                                      # Parse DOCX
+        except Exception as e:
+            messagebox.showerror("Parse failed", f"Could not parse DOCX:\n{e}")    # Show error
+            return
+        self.fault_entries = entries                                               # Save entries
+        self.fault_docx_path = path                                                # Save path
+        self.faults_status_var.set(f"Loaded {len(entries)} mappings from: {os.path.basename(path)}")  # Update status
+        self.text4.delete("1.0", tk.END)                                           # Clear output
+        self.text4.insert(tk.END, f"Loaded {len(entries)} mappings from: {path}\n")# Log load
+
+    def _on_run_faults_scan(self) -> None:
+        """Scan PLC using the loaded mapping and print active Faults/Warnings with descriptions/resolutions."""
+        self.text4.delete("1.0", tk.END)                                           # Clear log
+        ip = self.entry4_ip.get().strip()                                          # Read IP
+
+        if not self.fault_entries:                                                 # If no mapping loaded
+            auto = "faults321.docx"                                                # Try default file name
+            if os.path.isfile(auto) and DOCX_AVAILABLE:                            # If exists locally
+                try:
+                    self.fault_entries = parse_faults_docx(auto)                   # Parse it
+                    self.fault_docx_path = os.path.abspath(auto)                   # Save abs path
+                    self.faults_status_var.set(f"Loaded {len(self.fault_entries)} mappings from: {auto}")  # Update status
+                    print(f"Auto-loaded mapping from ./{auto}\n")                  # Log auto-load
+                except Exception:
+                    pass                                                           # Ignore parse error
+
+        if not self.fault_entries:                                                 # Still nothing?
+            print("No mapping loaded. Click 'Load Mapping (DOCX)' and select your faults document.\n")
+            return
+
+        if not is_valid_ip(ip):                                                    # Validate IP
+            print(f"Invalid IP address: {ip}\n")
+            return
+
+        def run_scan():                                                            # Worker function
+            print(f"Scanning PLC {ip} for active Faults/Warnings using mapping from\n{self.fault_docx_path}\n")
+            active = scan_faults_from_plc(ip, self.fault_entries)                  # Get active entries
+            if not active:
+                print("No active Faults/Warnings found.\n")                        # Nothing active
+                return
+
+            faults = [e for e in active if e["source"] == "Alarm_Fault"]           # Separate faults
+            warns  = [e for e in active if e["source"] == "Alarm_Warning"]         # Separate warnings
+
+            print(f"Found {len(faults)} active Fault(s), {len(warns)} active Warning(s)\n")
+            if faults:
+                print("=== ACTIVE FAULTS ===")
+                for e in faults:
+                    print(f"- {e['tag']}")                                         # Show tag path
+                    print(f"  Description: {e['description']}")                    # Show description
+                    print(f"  Resolution : {e['resolution']}\n")                   # Show resolution
+            if warns:
+                print("=== ACTIVE WARNINGS ===")
+                for e in warns:
+                    print(f"- {e['tag']}")                                         # Show tag path
+                    print(f"  Description: {e['description']}")                    # Show description
+                    print(f"  Resolution : {e['resolution']}\n")                   # Show resolution
+
+        self._run_in_thread(self.btn4_scan, run_scan, self.logger4)               # Run background scan
+
+# ----------------------------- Main entry point -------------------------------------
+
+if __name__ == "__main__":                                                         # Script entry
+    app = App()                                                                     # Create app
+    app.mainloop()                                                                  # Run Tk event loop
