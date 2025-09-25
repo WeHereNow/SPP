@@ -112,31 +112,86 @@ class PLCConnectionManager:
             yield self._connection
     
     def _create_connection(self):
-        """Create a new PLC connection with retry logic"""
+        """Create a new PLC connection with retry logic and better diagnostics"""
         if not PYLOGIX_AVAILABLE:
             raise RuntimeError("pylogix is not installed. Please run: pip install pylogix")
         
+        # First, test basic network connectivity
+        self.logger.info(f"Testing network connectivity to {self.ip_address}...")
+        if not self._test_network_connectivity():
+            raise ConnectionError(f"Network connectivity test failed for {self.ip_address}")
+        
         for attempt in range(config.plc.max_retries):
             try:
-                self.logger.debug(f"Creating PLC connection to {self.ip_address} (attempt {attempt + 1})")
+                self.logger.info(f"Creating PLC connection to {self.ip_address} (attempt {attempt + 1}/{config.plc.max_retries})")
                 self._connection = PLC()
                 self._connection.IPAddress = self.ip_address
                 self._connection.SocketTimeout = config.plc.read_timeout
                 
                 # Test connection with a simple read
+                self.logger.debug("Testing PLC communication with g_Par tag...")
                 test_result = self._connection.Read("Program:MainProgram.g_Par")
                 if test_result.Status == "Success":
                     self.logger.info(f"Successfully connected to PLC at {self.ip_address}")
                     return
                 else:
-                    self.logger.warning(f"Connection test failed: {test_result.Status}")
+                    self.logger.warning(f"PLC communication test failed: {test_result.Status}")
+                    if hasattr(test_result, 'StatusExtended'):
+                        self.logger.warning(f"Extended status: {test_result.StatusExtended}")
                     
             except Exception as e:
                 self.logger.warning(f"Connection attempt {attempt + 1} failed: {e}")
                 if attempt < config.plc.max_retries - 1:
+                    self.logger.info(f"Retrying in {config.plc.retry_delay} seconds...")
                     time.sleep(config.plc.retry_delay)
         
-        raise ConnectionError(f"Failed to connect to PLC at {self.ip_address} after {config.plc.max_retries} attempts")
+        raise ConnectionError(f"Failed to connect to PLC at {self.ip_address} after {config.plc.max_retries} attempts. Check:\n"
+                            f"1. PLC is powered on and running\n"
+                            f"2. Network connectivity to {self.ip_address}\n"
+                            f"3. PLC IP address is correct\n"
+                            f"4. No firewall blocking EtherNet/IP communication")
+    
+    def _test_network_connectivity(self) -> bool:
+        """Test basic network connectivity to the PLC"""
+        import socket
+        import subprocess
+        import platform
+        
+        try:
+            # Test 1: Socket connection test
+            self.logger.debug("Testing socket connectivity...")
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            result = sock.connect_ex((self.ip_address, 44818))  # EtherNet/IP port
+            sock.close()
+            
+            if result == 0:
+                self.logger.info("✓ Socket connectivity test passed")
+                return True
+            else:
+                self.logger.warning(f"✗ Socket connectivity test failed (error code: {result})")
+            
+            # Test 2: Ping test
+            self.logger.debug("Testing ping connectivity...")
+            is_windows = platform.system().lower() == "windows"
+            if is_windows:
+                cmd = ["ping", "-n", "1", "-w", "3000", self.ip_address]
+            else:
+                cmd = ["ping", "-c", "1", "-W", "3", self.ip_address]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                self.logger.info("✓ Ping connectivity test passed")
+                return True
+            else:
+                self.logger.warning("✗ Ping connectivity test failed")
+                self.logger.warning(f"Ping output: {result.stdout}")
+            
+            return False
+            
+        except Exception as e:
+            self.logger.warning(f"Network connectivity test failed: {e}")
+            return False
     
     def close(self):
         """Close the PLC connection"""

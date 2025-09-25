@@ -396,13 +396,20 @@ class EnhancedApp(tk.Tk):
         ttk.Label(toolbar, text="PLC IP:").pack(side=tk.LEFT, padx=(0, 6))
         self.entry_plc_ip = ttk.Entry(toolbar, width=24)
         self.entry_plc_ip.insert(0, config.plc.default_ip)
-        self.entry_plc_ip.pack(side=tk.LEFT, padx=(0, 10))
+        self.entry_plc_ip.pack(side=tk.LEFT, padx=(0, 6))
+        
+        ttk.Button(toolbar, text="Test IP", 
+                  command=self._on_test_plc_ip).pack(side=tk.LEFT, padx=6)
         
         # Control buttons
         self.btn_plc_run = ttk.Button(toolbar, text="Run Validation", 
                                      style="Accent.TButton", 
                                      command=self._on_run_plc_validation)
         self.btn_plc_run.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_plc_diagnose = ttk.Button(toolbar, text="Diagnose Connection", 
+                                          command=self._on_diagnose_plc_connection)
+        self.btn_plc_diagnose.pack(side=tk.LEFT, padx=6, pady=6)
         
         self.btn_plc_export = ttk.Button(toolbar, text="Export Report", 
                                         command=self._on_export_plc_report)
@@ -835,6 +842,133 @@ class EnhancedApp(tk.Tk):
                     self.plc_validator.close()
         
         self._run_in_thread(self.btn_plc_run, run_validation)
+    
+    def _on_diagnose_plc_connection(self):
+        """Diagnose PLC connection issues"""
+        self.plc_text.delete("1.0", tk.END)
+        ip = self.entry_plc_ip.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        def run_diagnosis():
+            try:
+                self.logger.info(f"Starting PLC connection diagnosis for {ip}")
+                self.plc_text.insert(tk.END, f"PLC Connection Diagnosis for {ip}\n")
+                self.plc_text.insert(tk.END, "=" * 50 + "\n\n")
+                
+                # Test 1: Basic ping
+                self.plc_text.insert(tk.END, "1. Testing basic network connectivity...\n")
+                import subprocess
+                import platform
+                
+                is_windows = platform.system().lower() == "windows"
+                if is_windows:
+                    cmd = ["ping", "-n", "3", "-w", "3000", ip]
+                else:
+                    cmd = ["ping", "-c", "3", "-W", "3", ip]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                if result.returncode == 0:
+                    self.plc_text.insert(tk.END, "   ✓ Ping successful\n")
+                    self.plc_text.insert(tk.END, f"   Response: {result.stdout.split('time=')[-1].split()[0] if 'time=' in result.stdout else 'OK'}\n")
+                else:
+                    self.plc_text.insert(tk.END, "   ✗ Ping failed\n")
+                    self.plc_text.insert(tk.END, f"   Error: {result.stderr}\n")
+                
+                # Test 2: EtherNet/IP port test
+                self.plc_text.insert(tk.END, "\n2. Testing EtherNet/IP port (44818)...\n")
+                import socket
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(5)
+                    result = sock.connect_ex((ip, 44818))
+                    sock.close()
+                    
+                    if result == 0:
+                        self.plc_text.insert(tk.END, "   ✓ EtherNet/IP port is accessible\n")
+                    else:
+                        self.plc_text.insert(tk.END, f"   ✗ EtherNet/IP port not accessible (error: {result})\n")
+                except Exception as e:
+                    self.plc_text.insert(tk.END, f"   ✗ Port test failed: {e}\n")
+                
+                # Test 3: pylogix availability
+                self.plc_text.insert(tk.END, "\n3. Checking pylogix library...\n")
+                if PYLOGIX_AVAILABLE:
+                    self.plc_text.insert(tk.END, "   ✓ pylogix is available\n")
+                    
+                    # Test 4: Basic pylogix connection
+                    self.plc_text.insert(tk.END, "\n4. Testing pylogix connection...\n")
+                    try:
+                        from pylogix import PLC
+                        with PLC() as comm:
+                            comm.IPAddress = ip
+                            comm.SocketTimeout = 5
+                            
+                            # Try to read a simple tag
+                            result = comm.Read("Program:MainProgram.g_Par")
+                            if result.Status == "Success":
+                                self.plc_text.insert(tk.END, "   ✓ pylogix connection successful\n")
+                                self.plc_text.insert(tk.END, f"   Tag value: {result.Value}\n")
+                            else:
+                                self.plc_text.insert(tk.END, f"   ✗ pylogix connection failed: {result.Status}\n")
+                                if hasattr(result, 'StatusExtended'):
+                                    self.plc_text.insert(tk.END, f"   Extended status: {result.StatusExtended}\n")
+                    except Exception as e:
+                        self.plc_text.insert(tk.END, f"   ✗ pylogix connection error: {e}\n")
+                else:
+                    self.plc_text.insert(tk.END, "   ✗ pylogix is not installed\n")
+                    self.plc_text.insert(tk.END, "   Install with: pip install pylogix\n")
+                
+                # Summary and recommendations
+                self.plc_text.insert(tk.END, "\n" + "=" * 50 + "\n")
+                self.plc_text.insert(tk.END, "DIAGNOSIS SUMMARY:\n")
+                self.plc_text.insert(tk.END, "=" * 50 + "\n")
+                self.plc_text.insert(tk.END, "If connection failed, check:\n")
+                self.plc_text.insert(tk.END, "1. PLC is powered on and running\n")
+                self.plc_text.insert(tk.END, "2. PLC IP address is correct\n")
+                self.plc_text.insert(tk.END, "3. Network cable is connected\n")
+                self.plc_text.insert(tk.END, "4. No firewall blocking EtherNet/IP (port 44818)\n")
+                self.plc_text.insert(tk.END, "5. PLC is in RUN mode (not PROGRAM mode)\n")
+                self.plc_text.insert(tk.END, "6. PLC has the correct program loaded\n")
+                self.plc_text.insert(tk.END, "7. Your computer is on the same network as the PLC\n")
+                
+            except Exception as e:
+                self.logger.error(f"PLC diagnosis error: {e}")
+                self.plc_text.insert(tk.END, f"Diagnosis error: {e}\n")
+        
+        self._run_in_thread(self.btn_plc_diagnose, run_diagnosis)
+    
+    def _on_test_plc_ip(self):
+        """Quick test of PLC IP connectivity"""
+        ip = self.entry_plc_ip.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        def test_ip():
+            try:
+                import subprocess
+                import platform
+                
+                is_windows = platform.system().lower() == "windows"
+                if is_windows:
+                    cmd = ["ping", "-n", "1", "-w", "3000", ip]
+                else:
+                    cmd = ["ping", "-c", "1", "-W", "3", ip]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    messagebox.showinfo("IP Test", f"✓ IP {ip} is reachable\n\nPing successful!")
+                else:
+                    messagebox.showerror("IP Test", f"✗ IP {ip} is not reachable\n\nPing failed.\n\nCheck:\n- PLC is powered on\n- Network cable connected\n- IP address is correct")
+                    
+            except Exception as e:
+                messagebox.showerror("IP Test Error", f"Error testing IP {ip}:\n{e}")
+        
+        self._run_in_thread(self.btn_plc_diagnose, test_ip)
     
     def _on_export_plc_report(self):
         """Export PLC report to file"""
