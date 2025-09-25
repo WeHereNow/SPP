@@ -162,6 +162,33 @@ except ImportError as e:
     
     class HMIVerificationResult:
         pass
+    
+    class FaultEntry:
+        def __init__(self, source="", index=0, bit=0, tag="", description="", resolution=""):
+            self.source = source
+            self.index = index
+            self.bit = bit
+            self.tag = tag
+            self.description = description
+            self.resolution = resolution
+    
+    class FaultsWarningsProcessor:
+        def __init__(self, logger=None):
+            self.logger = logger or get_logger("FaultsWarnings")
+            self.entries = []
+            self.docx_path = None
+        
+        def parse_faults_docx(self, docx_path):
+            raise RuntimeError("Enhanced modules not available")
+        
+        def scan_faults_from_plc(self, ip):
+            raise RuntimeError("Enhanced modules not available")
+        
+        def generate_report(self, active_entries):
+            return "Enhanced modules not available"
+        
+        def get_summary(self):
+            return {"total_entries": 0, "fault_entries": 0, "warning_entries": 0, "docx_path": None}
 
 # Import original modules for compatibility
 try:
@@ -634,9 +661,13 @@ class EnhancedApp(tk.Tk):
         self.btn_faults_load.pack(side=tk.LEFT, padx=6, pady=6)
         
         self.btn_faults_scan = ttk.Button(toolbar, text="Scan PLC", 
-                                         style="Accent.TButton", 
+                                         style="Accent.TButton",
                                          command=self._on_run_faults_scan)
         self.btn_faults_scan.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_faults_test = ttk.Button(toolbar, text="Test DOCX", 
+                                         command=self._on_test_docx)
+        self.btn_faults_test.pack(side=tk.LEFT, padx=6, pady=6)
         
         # Status label
         self.faults_status_var = tk.StringVar(value="No mapping loaded")
@@ -647,6 +678,7 @@ class EnhancedApp(tk.Tk):
         self.faults_text, self.faults_logger = self._make_text_panel(tab)
         self.fault_entries = []
         self.fault_docx_path = None
+        self.faults_processor = FaultsWarningsProcessor(self.faults_logger)
     
     def _build_settings_tab(self):
         """Build settings tab for configuration"""
@@ -1320,14 +1352,172 @@ class EnhancedApp(tk.Tk):
                 messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
     def _on_load_faults_docx(self):
-        """Load faults DOCX file (placeholder - would integrate original functionality)"""
-        self.faults_text.delete("1.0", tk.END)
-        self.faults_text.insert(tk.END, "Faults DOCX loading functionality would be integrated here.\n")
+        """Load faults DOCX file"""
+        if not DOCX_AVAILABLE:
+            messagebox.showerror("Missing dependency", "Please install python-docx:\n\npip install python-docx")
+            return
+        
+        # Open file dialog
+        path = filedialog.askopenfilename(
+            title="Select DOCX mapping file",
+            filetypes=[("Word documents", "*.docx"), ("All files", "*.*")]
+        )
+        
+        if not path:
+            return  # User cancelled
+        
+        def load_docx():
+            try:
+                self.logger.info(f"Loading DOCX file: {path}")
+                self.faults_text.delete("1.0", tk.END)
+                self.faults_text.insert(tk.END, f"Loading DOCX file: {path}\n")
+                self.faults_text.insert(tk.END, "Parsing tables and extracting fault mappings...\n")
+                
+                # Parse the DOCX file
+                entries = self.faults_processor.parse_faults_docx(path)
+                
+                # Update status
+                summary = self.faults_processor.get_summary()
+                status_text = f"Loaded {summary['total_entries']} mappings ({summary['fault_entries']} faults, {summary['warning_entries']} warnings)"
+                self.faults_status_var.set(status_text)
+                
+                # Display results
+                self.faults_text.insert(tk.END, f"\n✓ Successfully loaded {summary['total_entries']} entries:\n")
+                self.faults_text.insert(tk.END, f"  - Fault entries: {summary['fault_entries']}\n")
+                self.faults_text.insert(tk.END, f"  - Warning entries: {summary['warning_entries']}\n")
+                self.faults_text.insert(tk.END, f"  - File: {os.path.basename(path)}\n")
+                self.faults_text.insert(tk.END, "\nReady to scan PLC for active faults/warnings.\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error loading DOCX: {e}")
+                self.faults_text.insert(tk.END, f"\n✗ Error loading DOCX file:\n{e}\n")
+                self.faults_status_var.set("Error loading DOCX file")
+        
+        self._run_in_thread(self.btn_faults_load, load_docx)
     
     def _on_run_faults_scan(self):
-        """Run faults scan (placeholder - would integrate original functionality)"""
-        self.faults_text.delete("1.0", tk.END)
-        self.faults_text.insert(tk.END, "Faults scanning functionality would be integrated here.\n")
+        """Run faults scan"""
+        if not PYLOGIX_AVAILABLE:
+            messagebox.showerror("Missing dependency", "Please install pylogix:\n\npip install pylogix")
+            return
+        
+        ip = self.entry_faults_ip.get().strip()
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        # Check if we have loaded entries
+        if not self.faults_processor.entries:
+            # Try to auto-load a default file
+            auto_files = ["faults321.docx", "faults.docx", "alarms.docx"]
+            loaded = False
+            
+            for auto_file in auto_files:
+                if os.path.isfile(auto_file):
+                    try:
+                        self.faults_processor.parse_faults_docx(auto_file)
+                        summary = self.faults_processor.get_summary()
+                        status_text = f"Auto-loaded {summary['total_entries']} mappings from {auto_file}"
+                        self.faults_status_var.set(status_text)
+                        loaded = True
+                        break
+                    except Exception:
+                        continue
+            
+            if not loaded:
+                messagebox.showwarning("No Mapping", "No fault mapping loaded. Please click 'Load DOCX' and select your faults document.")
+                return
+        
+        def scan_plc():
+            try:
+                self.logger.info(f"Scanning PLC {ip} for active faults/warnings")
+                self.faults_text.delete("1.0", tk.END)
+                self.faults_text.insert(tk.END, f"Scanning PLC {ip} for active Faults/Warnings...\n")
+                self.faults_text.insert(tk.END, f"Using mapping from: {self.faults_processor.docx_path}\n")
+                self.faults_text.insert(tk.END, "=" * 60 + "\n\n")
+                
+                # Scan for active faults/warnings
+                active_entries = self.faults_processor.scan_faults_from_plc(ip)
+                
+                # Generate and display report
+                report = self.faults_processor.generate_report(active_entries)
+                self.faults_text.insert(tk.END, report)
+                
+                if active_entries:
+                    self.faults_text.insert(tk.END, "\n" + "=" * 60 + "\n")
+                    self.faults_text.insert(tk.END, "Scan complete. Review active faults/warnings above.\n")
+                else:
+                    self.faults_text.insert(tk.END, "\n" + "=" * 60 + "\n")
+                    self.faults_text.insert(tk.END, "Scan complete. No active faults/warnings found.\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error scanning PLC: {e}")
+                self.faults_text.insert(tk.END, f"\n✗ Error scanning PLC:\n{e}\n")
+                self.faults_text.insert(tk.END, "\nTroubleshooting:\n")
+                self.faults_text.insert(tk.END, "1. Check PLC IP address is correct\n")
+                self.faults_text.insert(tk.END, "2. Ensure PLC is powered on and running\n")
+                self.faults_text.insert(tk.END, "3. Verify network connectivity\n")
+                self.faults_text.insert(tk.END, "4. Check that pylogix is properly installed\n")
+        
+        self._run_in_thread(self.btn_faults_scan, scan_plc)
+    
+    def _on_test_docx(self):
+        """Test DOCX parsing with a sample file"""
+        if not DOCX_AVAILABLE:
+            messagebox.showerror("Missing dependency", "Please install python-docx:\n\npip install python-docx")
+            return
+        
+        # Look for common DOCX files in the current directory
+        test_files = ["faults321.docx", "faults.docx", "alarms.docx", "test.docx"]
+        found_files = [f for f in test_files if os.path.isfile(f)]
+        
+        if not found_files:
+            messagebox.showinfo("No Test Files", 
+                              "No test DOCX files found in current directory.\n\n"
+                              "Looking for: faults321.docx, faults.docx, alarms.docx, test.docx\n\n"
+                              "Please use 'Load DOCX' to select a file manually.")
+            return
+        
+        def test_docx():
+            try:
+                self.logger.info("Testing DOCX parsing functionality")
+                self.faults_text.delete("1.0", tk.END)
+                self.faults_text.insert(tk.END, "Testing DOCX parsing functionality...\n")
+                self.faults_text.insert(tk.END, "=" * 50 + "\n\n")
+                
+                for test_file in found_files:
+                    self.faults_text.insert(tk.END, f"Testing file: {test_file}\n")
+                    try:
+                        # Create a temporary processor for testing
+                        test_processor = FaultsWarningsProcessor(self.faults_logger)
+                        entries = test_processor.parse_faults_docx(test_file)
+                        summary = test_processor.get_summary()
+                        
+                        self.faults_text.insert(tk.END, f"  ✓ Success: {summary['total_entries']} entries found\n")
+                        self.faults_text.insert(tk.END, f"    - Faults: {summary['fault_entries']}\n")
+                        self.faults_text.insert(tk.END, f"    - Warnings: {summary['warning_entries']}\n")
+                        
+                        # Show first few entries as examples
+                        if entries:
+                            self.faults_text.insert(tk.END, f"    - Sample entries:\n")
+                            for i, entry in enumerate(entries[:3]):  # Show first 3
+                                self.faults_text.insert(tk.END, f"      {i+1}. {entry.tag} -> {entry.description[:50]}...\n")
+                            if len(entries) > 3:
+                                self.faults_text.insert(tk.END, f"      ... and {len(entries) - 3} more\n")
+                        
+                    except Exception as e:
+                        self.faults_text.insert(tk.END, f"  ✗ Error: {e}\n")
+                    
+                    self.faults_text.insert(tk.END, "\n")
+                
+                self.faults_text.insert(tk.END, "=" * 50 + "\n")
+                self.faults_text.insert(tk.END, "DOCX testing complete.\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error testing DOCX: {e}")
+                self.faults_text.insert(tk.END, f"Error during testing: {e}\n")
+        
+        self._run_in_thread(self.btn_faults_test, test_docx)
     
     def _on_save_settings(self):
         """Save application settings"""
