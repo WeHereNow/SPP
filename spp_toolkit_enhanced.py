@@ -17,6 +17,9 @@ try:
     from logger import get_logger, ProgressLogger
     from network_validation import NetworkValidator, DeviceResult
     from plc_communication import EnhancedPLCValidator
+    from cognex_validation import CognexValidator, CognexDevice, CognexResult
+    from plc_verification import PLCVerifier, PLCVerificationResult
+    from hmi_verification import HMIVerifier, HMIVerificationResult
     ENHANCED_MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Enhanced modules not available: {e}")
@@ -104,6 +107,60 @@ except ImportError as e:
             return "Enhanced PLC validation not available"
         def close(self):
             pass
+    
+    # Mock classes for new enhanced functionality
+    class CognexValidator:
+        def __init__(self, logger=None):
+            pass
+        def validate_devices(self, devices, upload_if_different=True):
+            return []
+        def generate_report(self, results):
+            return "Enhanced Cognex validation not available"
+        def export_results_json(self, results, filename=None):
+            return "cognex_results.json"
+        def export_results_csv(self, results, filename=None):
+            return "cognex_results.csv"
+    
+    class CognexDevice:
+        def __init__(self, name, model, ip, cfg_file="", backup_path=""):
+            self.name = name
+            self.model = model
+            self.ip = ip
+            self.cfg_file = cfg_file
+            self.backup_path = backup_path
+    
+    class CognexResult:
+        pass
+    
+    class PLCVerifier:
+        def __init__(self, logger=None):
+            pass
+        def verify_plc(self, ip_address, expected_project_name="", expected_major_revision=0, expected_minor_revision=0):
+            return None
+        def generate_report(self, results):
+            return "Enhanced PLC verification not available"
+        def export_results_json(self, results, filename=None):
+            return "plc_verification.json"
+        def export_results_csv(self, results, filename=None):
+            return "plc_verification.csv"
+    
+    class PLCVerificationResult:
+        pass
+    
+    class HMIVerifier:
+        def __init__(self, logger=None):
+            pass
+        def verify_hmi(self, ip_address, port=2222, expected_app_name="", expected_version=""):
+            return None
+        def generate_report(self, results):
+            return "Enhanced HMI verification not available"
+        def export_results_json(self, results, filename=None):
+            return "hmi_verification.json"
+        def export_results_csv(self, results, filename=None):
+            return "hmi_verification.csv"
+    
+    class HMIVerificationResult:
+        pass
 
 # Import original modules for compatibility
 try:
@@ -266,7 +323,7 @@ class EnhancedApp(tk.Tk):
         
         ttk.Label(title_row, text="SPP All-In-One Toolkit", 
                  font=("Segoe UI Semibold", 14)).pack(side=tk.LEFT)
-        ttk.Label(title_row, text="Enhanced • Network • PLC • Cognex • Faults", 
+        ttk.Label(title_row, text="Enhanced • Network • PLC • Cognex • Verification • Faults", 
                  foreground=SUBTEXT).pack(side=tk.LEFT, padx=12)
         
         # Status indicators
@@ -295,6 +352,8 @@ class EnhancedApp(tk.Tk):
         self._build_network_tab()
         self._build_plc_tab()
         self._build_cognex_tab()
+        self._build_plc_verification_tab()
+        self._build_hmi_verification_tab()
         self._build_faults_tab()
         self._build_settings_tab()
     
@@ -354,20 +413,194 @@ class EnhancedApp(tk.Tk):
         self.plc_text, self.plc_logger = self._make_text_panel(tab)
     
     def _build_cognex_tab(self):
-        """Build Cognex validation tab (keeping original functionality)"""
+        """Build enhanced Cognex validation tab with CFG file comparison"""
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Cognex Validation")
         
         # Toolbar
-        toolbar = self._build_toolbar(tab, "Cognex Validation", "Backup and upload configuration files")
+        toolbar = self._build_toolbar(tab, "Cognex Validation", "Backup current config and upload selected .cfg if different")
         
+        # Control buttons
         self.btn_cognex_run = ttk.Button(toolbar, text="Run Backup & Upload", 
                                         style="Accent.TButton", 
                                         command=self._on_run_cognex_validation)
         self.btn_cognex_run.pack(side=tk.LEFT, padx=6, pady=6)
         
+        self.btn_cognex_export_json = ttk.Button(toolbar, text="Export JSON", 
+                                                command=self._on_export_cognex_json)
+        self.btn_cognex_export_json.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_cognex_export_json.configure(state=tk.DISABLED)
+        
+        self.btn_cognex_export_csv = ttk.Button(toolbar, text="Export CSV", 
+                                               command=self._on_export_cognex_csv)
+        self.btn_cognex_export_csv.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_cognex_export_csv.configure(state=tk.DISABLED)
+        
+        # Device configuration area
+        config_frame = ttk.Frame(tab)
+        config_frame.pack(fill=tk.X, padx=10, pady=6)
+        
+        # Header for device list
+        header = ttk.Frame(config_frame)
+        header.pack(fill=tk.X, pady=(6, 2))
+        ttk.Label(header, text="Device", width=28, foreground=SUBTEXT).pack(side=tk.LEFT, padx=4)
+        ttk.Label(header, text="IP", width=18, foreground=SUBTEXT).pack(side=tk.LEFT, padx=4)
+        ttk.Label(header, text="Config File (.cfg)", width=48, foreground=SUBTEXT).pack(side=tk.LEFT, padx=4)
+        
+        # Cognex devices configuration
+        self.cognex_devices = [
+            CognexDevice("Ship Verify Reader", "Cognex DM262", "11.200.1.18"),
+            CognexDevice("KO Tote Reader", "Cognex DataMan", "11.200.1.19"),
+        ]
+        
+        self.cognex_path_vars = []
+        for device in self.cognex_devices:
+            row = ttk.Frame(config_frame)
+            row.pack(fill=tk.X, pady=3)
+            
+            ttk.Label(row, text=f"{device.name} ({device.model})", width=28).pack(side=tk.LEFT, padx=4)
+            ttk.Label(row, text=device.ip, width=18, foreground=SUBTEXT).pack(side=tk.LEFT, padx=4)
+            
+            var = tk.StringVar()
+            var.set("SHIPconfig.cfg" if "Ship" in device.name else "KOconfig.cfg")
+            self.cognex_path_vars.append(var)
+            
+            entry = ttk.Entry(row, textvariable=var, width=54)
+            entry.pack(side=tk.LEFT, padx=4)
+            
+            def browse_cfg(var_ref=var):
+                path = filedialog.askopenfilename(
+                    title="Select .cfg file",
+                    filetypes=[("CFG files", "*.cfg"), ("All files", "*.*")]
+                )
+                if path:
+                    var_ref.set(path)
+            
+            ttk.Button(row, text="Browse", command=browse_cfg).pack(side=tk.LEFT, padx=4)
+        
         # Results display
         self.cognex_text, self.cognex_logger = self._make_text_panel(tab)
+        self.cognex_results = []
+    
+    def _build_plc_verification_tab(self):
+        """Build PLC verification tab"""
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="PLC Verification")
+        
+        # Toolbar
+        toolbar = self._build_toolbar(tab, "PLC Verification", "Verify PLC project name, version, timestamp, and checksum")
+        
+        # PLC configuration
+        config_frame = ttk.Frame(tab)
+        config_frame.pack(fill=tk.X, padx=10, pady=6)
+        
+        # PLC IP input
+        ip_frame = ttk.Frame(config_frame)
+        ip_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(ip_frame, text="PLC IP Address:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_plc_verify_ip = ttk.Entry(ip_frame, width=24)
+        self.entry_plc_verify_ip.insert(0, config.plc.default_ip)
+        self.entry_plc_verify_ip.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Expected values
+        expected_frame = ttk.Frame(config_frame)
+        expected_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(expected_frame, text="Expected Project Name:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_plc_expected_project = ttk.Entry(expected_frame, width=30)
+        self.entry_plc_expected_project.pack(side=tk.LEFT, padx=(0, 20))
+        
+        version_frame = ttk.Frame(config_frame)
+        version_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(version_frame, text="Expected Version:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_plc_expected_major = ttk.Entry(version_frame, width=8)
+        self.entry_plc_expected_major.insert(0, "1")
+        self.entry_plc_expected_major.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(version_frame, text=".").pack(side=tk.LEFT)
+        self.entry_plc_expected_minor = ttk.Entry(version_frame, width=8)
+        self.entry_plc_expected_minor.insert(0, "0")
+        self.entry_plc_expected_minor.pack(side=tk.LEFT, padx=(5, 20))
+        
+        # Control buttons
+        self.btn_plc_verify_run = ttk.Button(toolbar, text="Verify PLC", 
+                                            style="Accent.TButton", 
+                                            command=self._on_run_plc_verification)
+        self.btn_plc_verify_run.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_plc_verify_export_json = ttk.Button(toolbar, text="Export JSON", 
+                                                    command=self._on_export_plc_verify_json)
+        self.btn_plc_verify_export_json.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_plc_verify_export_json.configure(state=tk.DISABLED)
+        
+        self.btn_plc_verify_export_csv = ttk.Button(toolbar, text="Export CSV", 
+                                                   command=self._on_export_plc_verify_csv)
+        self.btn_plc_verify_export_csv.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_plc_verify_export_csv.configure(state=tk.DISABLED)
+        
+        # Results display
+        self.plc_verify_text, self.plc_verify_logger = self._make_text_panel(tab)
+        self.plc_verify_results = []
+    
+    def _build_hmi_verification_tab(self):
+        """Build HMI verification tab"""
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="HMI Verification")
+        
+        # Toolbar
+        toolbar = self._build_toolbar(tab, "HMI Verification", "Verify HMI runtime app name and version")
+        
+        # HMI configuration
+        config_frame = ttk.Frame(tab)
+        config_frame.pack(fill=tk.X, padx=10, pady=6)
+        
+        # HMI IP input
+        ip_frame = ttk.Frame(config_frame)
+        ip_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(ip_frame, text="HMI IP Address:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_hmi_verify_ip = ttk.Entry(ip_frame, width=24)
+        self.entry_hmi_verify_ip.insert(0, "11.200.0.180")
+        self.entry_hmi_verify_ip.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Port input
+        port_frame = ttk.Frame(config_frame)
+        port_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(port_frame, text="Port:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_hmi_verify_port = ttk.Entry(port_frame, width=8)
+        self.entry_hmi_verify_port.insert(0, "2222")
+        self.entry_hmi_verify_port.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Expected values
+        expected_frame = ttk.Frame(config_frame)
+        expected_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(expected_frame, text="Expected App Name:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_hmi_expected_app = ttk.Entry(expected_frame, width=30)
+        self.entry_hmi_expected_app.insert(0, "FactoryTalk View SE")
+        self.entry_hmi_expected_app.pack(side=tk.LEFT, padx=(0, 20))
+        
+        version_frame = ttk.Frame(config_frame)
+        version_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(version_frame, text="Expected Version:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_hmi_expected_version = ttk.Entry(version_frame, width=20)
+        self.entry_hmi_expected_version.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Control buttons
+        self.btn_hmi_verify_run = ttk.Button(toolbar, text="Verify HMI", 
+                                            style="Accent.TButton", 
+                                            command=self._on_run_hmi_verification)
+        self.btn_hmi_verify_run.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_hmi_verify_export_json = ttk.Button(toolbar, text="Export JSON", 
+                                                    command=self._on_export_hmi_verify_json)
+        self.btn_hmi_verify_export_json.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_hmi_verify_export_json.configure(state=tk.DISABLED)
+        
+        self.btn_hmi_verify_export_csv = ttk.Button(toolbar, text="Export CSV", 
+                                                   command=self._on_export_hmi_verify_csv)
+        self.btn_hmi_verify_export_csv.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_hmi_verify_export_csv.configure(state=tk.DISABLED)
+        
+        # Results display
+        self.hmi_verify_text, self.hmi_verify_logger = self._make_text_panel(tab)
+        self.hmi_verify_results = []
     
     def _build_faults_tab(self):
         """Build faults/warnings tab (keeping original functionality)"""
@@ -488,8 +721,10 @@ class EnhancedApp(tk.Tk):
         self.bind('<Control-n>', lambda e: self.notebook.select(0))  # Network tab
         self.bind('<Control-p>', lambda e: self.notebook.select(1))  # PLC tab
         self.bind('<Control-c>', lambda e: self.notebook.select(2))  # Cognex tab
-        self.bind('<Control-f>', lambda e: self.notebook.select(3))  # Faults tab
-        self.bind('<Control-s>', lambda e: self.notebook.select(4))  # Settings tab
+        self.bind('<Control-v>', lambda e: self.notebook.select(3))  # PLC Verification tab
+        self.bind('<Control-h>', lambda e: self.notebook.select(4))  # HMI Verification tab
+        self.bind('<Control-f>', lambda e: self.notebook.select(5))  # Faults tab
+        self.bind('<Control-s>', lambda e: self.notebook.select(6))  # Settings tab
         self.bind('<F5>', lambda e: self._refresh_current_tab())
     
     def _refresh_current_tab(self):
@@ -499,6 +734,12 @@ class EnhancedApp(tk.Tk):
             self._on_run_network_validation()
         elif current_tab == 1:  # PLC tab
             self._on_run_plc_validation()
+        elif current_tab == 2:  # Cognex tab
+            self._on_run_cognex_validation()
+        elif current_tab == 3:  # PLC Verification tab
+            self._on_run_plc_verification()
+        elif current_tab == 4:  # HMI Verification tab
+            self._on_run_hmi_verification()
     
     def _run_in_thread(self, button, target, *args, **kwargs):
         """Run function in background thread with button state management"""
@@ -513,6 +754,15 @@ class EnhancedApp(tk.Tk):
                 self.after(0, lambda: button.configure(state=tk.NORMAL))
         
         threading.Thread(target=worker, daemon=True).start()
+    
+    def _show_confirmation_dialog(self, title: str, message: str, operation: str = "operation") -> bool:
+        """Show confirmation dialog before running operations"""
+        result = messagebox.askyesno(
+            title=title,
+            message=f"{message}\n\nDo you want to proceed with this {operation}?",
+            icon='question'
+        )
+        return result
     
     # Event handlers
     def _on_run_network_validation(self):
@@ -605,10 +855,253 @@ class EnhancedApp(tk.Tk):
                 messagebox.showerror("Export Error", f"Failed to save report:\n{e}")
     
     def _on_run_cognex_validation(self):
-        """Run Cognex validation (placeholder - would integrate original functionality)"""
+        """Run enhanced Cognex validation with CFG file comparison"""
+        if not self._show_confirmation_dialog(
+            "Cognex Validation",
+            "This will backup current configurations and upload new ones if they differ.\nThis may cause temporary disruption to vision systems.",
+            "Cognex validation"
+        ):
+            return
+        
         self.cognex_text.delete("1.0", tk.END)
-        self.cognex_text.insert(tk.END, "Cognex validation functionality would be integrated here.\n")
-        self.cognex_text.insert(tk.END, "This would include the original backup and upload features.\n")
+        self.btn_cognex_export_json.configure(state=tk.DISABLED)
+        self.btn_cognex_export_csv.configure(state=tk.DISABLED)
+        
+        def run_validation():
+            try:
+                self.logger.info("Starting enhanced Cognex validation")
+                self.cognex_validator = CognexValidator(self.cognex_logger)
+                
+                # Update device configurations with user-selected files
+                for device, var in zip(self.cognex_devices, self.cognex_path_vars):
+                    device.cfg_file = var.get().strip()
+                
+                results = self.cognex_validator.validate_devices(self.cognex_devices, upload_if_different=True)
+                self.cognex_results = results
+                
+                report = self.cognex_validator.generate_report(results)
+                self.cognex_text.insert(tk.END, report)
+                
+                self.after(0, lambda: self.btn_cognex_export_json.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.btn_cognex_export_csv.configure(state=tk.NORMAL))
+                
+            except Exception as e:
+                self.logger.error(f"Cognex validation error: {e}")
+                self.cognex_text.insert(tk.END, f"Error: {e}\n")
+        
+        self._run_in_thread(self.btn_cognex_run, run_validation)
+    
+    def _on_export_cognex_json(self):
+        """Export Cognex results to JSON"""
+        if not self.cognex_results:
+            messagebox.showwarning("No Data", "No Cognex validation results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Save Cognex Validation Results (JSON)"
+        )
+        
+        if filename:
+            try:
+                self.cognex_validator.export_results_json(self.cognex_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
+    
+    def _on_export_cognex_csv(self):
+        """Export Cognex results to CSV"""
+        if not self.cognex_results:
+            messagebox.showwarning("No Data", "No Cognex validation results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save Cognex Validation Results (CSV)"
+        )
+        
+        if filename:
+            try:
+                self.cognex_validator.export_results_csv(self.cognex_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
+    
+    def _on_run_plc_verification(self):
+        """Run PLC verification"""
+        if not self._show_confirmation_dialog(
+            "PLC Verification",
+            "This will connect to the PLC and read project information including version, checksum, and timestamps.",
+            "PLC verification"
+        ):
+            return
+        
+        self.plc_verify_text.delete("1.0", tk.END)
+        ip = self.entry_plc_verify_ip.get().strip()
+        expected_project = self.entry_plc_expected_project.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        try:
+            expected_major = int(self.entry_plc_expected_major.get() or "0")
+            expected_minor = int(self.entry_plc_expected_minor.get() or "0")
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid version numbers")
+            return
+        
+        def run_verification():
+            try:
+                self.logger.info(f"Starting PLC verification for {ip}")
+                self.plc_verifier = PLCVerifier(self.plc_verify_logger)
+                
+                result = self.plc_verifier.verify_plc(
+                    ip_address=ip,
+                    expected_project_name=expected_project,
+                    expected_major_revision=expected_major,
+                    expected_minor_revision=expected_minor
+                )
+                
+                self.plc_verify_results = [result]
+                report = self.plc_verifier.generate_report(self.plc_verify_results)
+                self.plc_verify_text.insert(tk.END, report)
+                
+                self.after(0, lambda: self.btn_plc_verify_export_json.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.btn_plc_verify_export_csv.configure(state=tk.NORMAL))
+                
+            except Exception as e:
+                self.logger.error(f"PLC verification error: {e}")
+                self.plc_verify_text.insert(tk.END, f"Error: {e}\n")
+        
+        self._run_in_thread(self.btn_plc_verify_run, run_verification)
+    
+    def _on_export_plc_verify_json(self):
+        """Export PLC verification results to JSON"""
+        if not self.plc_verify_results:
+            messagebox.showwarning("No Data", "No PLC verification results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Save PLC Verification Results (JSON)"
+        )
+        
+        if filename:
+            try:
+                self.plc_verifier.export_results_json(self.plc_verify_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
+    
+    def _on_export_plc_verify_csv(self):
+        """Export PLC verification results to CSV"""
+        if not self.plc_verify_results:
+            messagebox.showwarning("No Data", "No PLC verification results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save PLC Verification Results (CSV)"
+        )
+        
+        if filename:
+            try:
+                self.plc_verifier.export_results_csv(self.plc_verify_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
+    
+    def _on_run_hmi_verification(self):
+        """Run HMI verification"""
+        if not self._show_confirmation_dialog(
+            "HMI Verification",
+            "This will connect to the HMI and check runtime application information.",
+            "HMI verification"
+        ):
+            return
+        
+        self.hmi_verify_text.delete("1.0", tk.END)
+        ip = self.entry_hmi_verify_ip.get().strip()
+        expected_app = self.entry_hmi_expected_app.get().strip()
+        expected_version = self.entry_hmi_expected_version.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter an HMI IP address")
+            return
+        
+        try:
+            port = int(self.entry_hmi_verify_port.get() or "2222")
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid port number")
+            return
+        
+        def run_verification():
+            try:
+                self.logger.info(f"Starting HMI verification for {ip}:{port}")
+                self.hmi_verifier = HMIVerifier(self.hmi_verify_logger)
+                
+                result = self.hmi_verifier.verify_hmi(
+                    ip_address=ip,
+                    port=port,
+                    expected_app_name=expected_app,
+                    expected_version=expected_version
+                )
+                
+                self.hmi_verify_results = [result]
+                report = self.hmi_verifier.generate_report(self.hmi_verify_results)
+                self.hmi_verify_text.insert(tk.END, report)
+                
+                self.after(0, lambda: self.btn_hmi_verify_export_json.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.btn_hmi_verify_export_csv.configure(state=tk.NORMAL))
+                
+            except Exception as e:
+                self.logger.error(f"HMI verification error: {e}")
+                self.hmi_verify_text.insert(tk.END, f"Error: {e}\n")
+        
+        self._run_in_thread(self.btn_hmi_verify_run, run_verification)
+    
+    def _on_export_hmi_verify_json(self):
+        """Export HMI verification results to JSON"""
+        if not self.hmi_verify_results:
+            messagebox.showwarning("No Data", "No HMI verification results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Save HMI Verification Results (JSON)"
+        )
+        
+        if filename:
+            try:
+                self.hmi_verifier.export_results_json(self.hmi_verify_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
+    
+    def _on_export_hmi_verify_csv(self):
+        """Export HMI verification results to CSV"""
+        if not self.hmi_verify_results:
+            messagebox.showwarning("No Data", "No HMI verification results to export")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            title="Save HMI Verification Results (CSV)"
+        )
+        
+        if filename:
+            try:
+                self.hmi_verifier.export_results_csv(self.hmi_verify_results, filename)
+                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
     def _on_load_faults_docx(self):
         """Load faults DOCX file (placeholder - would integrate original functionality)"""
