@@ -20,6 +20,7 @@ try:
     from cognex_validation import CognexValidator, CognexDevice, CognexResult
     from plc_verification import PLCVerifier, PLCVerificationResult
     from hmi_verification import HMIVerifier, HMIVerificationResult
+    from faults_warnings import FaultsWarningsProcessor, FaultEntry
     ENHANCED_MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Enhanced modules not available: {e}")
