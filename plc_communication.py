@@ -130,7 +130,7 @@ class PLCConnectionManager:
                 
                 # Test connection with a simple read
                 self.logger.debug("Testing PLC communication with g_Par tag...")
-                test_result = self._connection.Read("Program:MainProgram.g_Par")
+                test_result = self._connection.Read("g_Par")
                 if test_result.Status == "Success":
                     self.logger.info(f"Successfully connected to PLC at {self.ip_address}")
                     return
@@ -251,31 +251,51 @@ class EnhancedPLCValidator:
             )
     
     def read_multiple_tags(self, tags: List[str]) -> Dict[str, TagValue]:
-        """Read multiple tags efficiently"""
+        """Read multiple tags efficiently with fallback to individual reads"""
         results = {}
         
+        # First try to read all tags at once
         try:
             with self.connection_manager.get_connection() as plc:
                 plc_results = plc.Read(tags)
                 
-                for tag, result in zip(tags, plc_results):
-                    results[tag] = TagValue(
-                        tag=tag,
-                        value=result.Value,
-                        status=result.Status,
-                        timestamp=time.time(),
-                        data_type=result.DataType
-                    )
+                # Check if we got a list of results
+                if isinstance(plc_results, list):
+                    for tag, result in zip(tags, plc_results):
+                        results[tag] = TagValue(
+                            tag=tag,
+                            value=result.Value,
+                            status=result.Status,
+                            timestamp=time.time(),
+                            data_type=result.DataType
+                        )
+                else:
+                    # Single result, treat as failed
+                    raise Exception("Expected list of results, got single result")
                     
         except Exception as e:
-            self.logger.error(f"Error reading multiple tags: {e}")
+            self.logger.warning(f"Multiple tag read failed: {e}. Falling back to individual reads.")
+            
+            # Fallback: read each tag individually
             for tag in tags:
-                results[tag] = TagValue(
-                    tag=tag,
-                    value=None,
-                    status="Error",
-                    timestamp=time.time()
-                )
+                try:
+                    with self.connection_manager.get_connection() as plc:
+                        result = plc.Read(tag)
+                        results[tag] = TagValue(
+                            tag=tag,
+                            value=result.Value,
+                            status=result.Status,
+                            timestamp=time.time(),
+                            data_type=result.DataType
+                        )
+                except Exception as tag_error:
+                    self.logger.error(f"Error reading individual tag {tag}: {tag_error}")
+                    results[tag] = TagValue(
+                        tag=tag,
+                        value=None,
+                        status="Error",
+                        timestamp=time.time()
+                    )
         
         return results
     
@@ -315,6 +335,7 @@ class EnhancedPLCValidator:
             'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB',
         ]
         
+        self.logger.info(f"Reading {len(safety_tags)} safety tags...")
         results = self.read_multiple_tags(safety_tags)
         
         return SafetyStatus(
@@ -337,6 +358,7 @@ class EnhancedPLCValidator:
             'NTP_Connected'
         ]
         
+        self.logger.info(f"Reading {len(connectivity_tags)} connectivity tags...")
         results = self.read_multiple_tags(connectivity_tags)
         return {tag: bool(result.value) for tag, result in results.items()}
     
@@ -409,6 +431,31 @@ class EnhancedPLCValidator:
         report_lines.append("End of Report\n")
         
         return "\n".join(report_lines)
+    
+    def test_individual_tags(self, tags: List[str]) -> Dict[str, TagValue]:
+        """Test individual tags for debugging purposes"""
+        self.logger.info(f"Testing {len(tags)} individual tags...")
+        results = {}
+        
+        for i, tag in enumerate(tags, 1):
+            self.logger.info(f"Testing tag {i}/{len(tags)}: {tag}")
+            try:
+                result = self.read_tag(tag, use_cache=False)
+                results[tag] = result
+                if result.status == "Success":
+                    self.logger.info(f"  ✓ {tag}: {result.value}")
+                else:
+                    self.logger.warning(f"  ✗ {tag}: {result.status}")
+            except Exception as e:
+                self.logger.error(f"  ✗ {tag}: Exception - {e}")
+                results[tag] = TagValue(
+                    tag=tag,
+                    value=None,
+                    status="Exception",
+                    timestamp=time.time()
+                )
+        
+        return results
     
     def close(self):
         """Close the PLC connection"""

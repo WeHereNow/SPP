@@ -411,6 +411,10 @@ class EnhancedApp(tk.Tk):
                                           command=self._on_diagnose_plc_connection)
         self.btn_plc_diagnose.pack(side=tk.LEFT, padx=6, pady=6)
         
+        self.btn_plc_test_tags = ttk.Button(toolbar, text="Test Individual Tags", 
+                                           command=self._on_test_individual_tags)
+        self.btn_plc_test_tags.pack(side=tk.LEFT, padx=6, pady=6)
+        
         self.btn_plc_export = ttk.Button(toolbar, text="Export Report", 
                                         command=self._on_export_plc_report)
         self.btn_plc_export.pack(side=tk.LEFT, padx=6, pady=6)
@@ -969,6 +973,81 @@ class EnhancedApp(tk.Tk):
                 messagebox.showerror("IP Test Error", f"Error testing IP {ip}:\n{e}")
         
         self._run_in_thread(self.btn_plc_diagnose, test_ip)
+    
+    def _on_test_individual_tags(self):
+        """Test individual PLC tags for debugging"""
+        self.plc_text.delete("1.0", tk.END)
+        ip = self.entry_plc_ip.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        def test_tags():
+            try:
+                self.logger.info(f"Testing individual tags for {ip}")
+                self.plc_text.insert(tk.END, f"Testing Individual PLC Tags for {ip}\n")
+                self.plc_text.insert(tk.END, "=" * 50 + "\n\n")
+                
+                self.plc_validator = EnhancedPLCValidator(ip, self.plc_logger)
+                
+                # Test all the tags from the original script
+                all_tags = [
+                    'g_Par', 'g_Par1', 'g_ParNew', 'g_parTemp',
+                    'Program:SafetyProgram.SafetyIO.In.ESTOP_Relay1Feedback',
+                    'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelA',
+                    'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelB',
+                    'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelA',
+                    'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelB',
+                    'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelA',
+                    'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelB',
+                    'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelA',
+                    'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB',
+                    'IO.PLC.In.DownstreamConveyorEnabled',
+                    'H1_PACK_WMS_Connected',
+                    'H2_SLAM1_WMS_Connected',
+                    'NTP_Connected'
+                ]
+                
+                results = self.plc_validator.test_individual_tags(all_tags)
+                
+                # Display results
+                successful = []
+                failed = []
+                
+                for tag, result in results.items():
+                    if result.status == "Success":
+                        successful.append(f"✓ {tag}: {result.value}")
+                    else:
+                        failed.append(f"✗ {tag}: {result.status}")
+                
+                self.plc_text.insert(tk.END, f"RESULTS SUMMARY:\n")
+                self.plc_text.insert(tk.END, f"Total tags tested: {len(all_tags)}\n")
+                self.plc_text.insert(tk.END, f"Successful: {len(successful)}\n")
+                self.plc_text.insert(tk.END, f"Failed: {len(failed)}\n\n")
+                
+                if successful:
+                    self.plc_text.insert(tk.END, "SUCCESSFUL TAGS:\n")
+                    for result in successful:
+                        self.plc_text.insert(tk.END, f"  {result}\n")
+                    self.plc_text.insert(tk.END, "\n")
+                
+                if failed:
+                    self.plc_text.insert(tk.END, "FAILED TAGS:\n")
+                    for result in failed:
+                        self.plc_text.insert(tk.END, f"  {result}\n")
+                
+                self.plc_text.insert(tk.END, "\n" + "=" * 50 + "\n")
+                self.plc_text.insert(tk.END, "Individual tag testing complete.\n")
+                
+            except Exception as e:
+                self.logger.error(f"Individual tag testing error: {e}")
+                self.plc_text.insert(tk.END, f"Error: {e}\n")
+            finally:
+                if hasattr(self, 'plc_validator') and self.plc_validator:
+                    self.plc_validator.close()
+        
+        self._run_in_thread(self.btn_plc_test_tags, test_tags)
     
     def _on_export_plc_report(self):
         """Export PLC report to file"""
