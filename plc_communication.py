@@ -234,7 +234,7 @@ class EnhancedPLCValidator:
                     value=result.Value,
                     status=result.Status,
                     timestamp=time.time(),
-                    data_type=result.DataType
+                    data_type=getattr(result, 'DataType', None)
                 )
                 
                 self._tag_cache[tag] = tag_value
@@ -267,7 +267,7 @@ class EnhancedPLCValidator:
                             value=result.Value,
                             status=result.Status,
                             timestamp=time.time(),
-                            data_type=result.DataType
+                            data_type=getattr(result, 'DataType', None)
                         )
                 else:
                     # Single result, treat as failed
@@ -286,7 +286,7 @@ class EnhancedPLCValidator:
                             value=result.Value,
                             status=result.Status,
                             timestamp=time.time(),
-                            data_type=result.DataType
+                            data_type=getattr(result, 'DataType', None)
                         )
                 except Exception as tag_error:
                     self.logger.error(f"Error reading individual tag {tag}: {tag_error}")
