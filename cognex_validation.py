@@ -315,28 +315,30 @@ class CognexValidator:
         self.logger.info(f"Starting Cognex validation for {len(devices)} devices")
         self.results = []
         
-        with ProgressLogger(self.logger, len(devices), "Cognex Validation") as progress:
-            for device in devices:
-                try:
-                    result = self.process_cognex_device(device, upload_if_different)
-                    self.results.append(result)
-                    progress.step(f"Completed {device.name}")
-                except Exception as e:
-                    self.logger.error(f"Exception processing {device.name}: {e}")
-                    error_result = CognexResult(
-                        device=device,
-                        backup_successful=False,
-                        backup_size=0,
-                        backup_hash="",
-                        local_file_exists=False,
-                        local_file_hash="",
-                        files_match=False,
-                        upload_successful=False,
-                        error_message=str(e),
-                        timestamp=datetime.now().isoformat()
-                    )
-                    self.results.append(error_result)
-                    progress.step(f"Failed {device.name}")
+        progress = ProgressLogger(self.logger, len(devices), "Cognex Validation")
+        for device in devices:
+            try:
+                result = self.process_cognex_device(device, upload_if_different)
+                self.results.append(result)
+                progress.step(f"Completed {device.name}")
+            except Exception as e:
+                self.logger.error(f"Exception processing {device.name}: {e}")
+                error_result = CognexResult(
+                    device=device,
+                    backup_successful=False,
+                    backup_size=0,
+                    backup_hash="",
+                    local_file_exists=False,
+                    local_file_hash="",
+                    files_match=False,
+                    upload_successful=False,
+                    error_message=str(e),
+                    timestamp=datetime.now().isoformat()
+                )
+                self.results.append(error_result)
+                progress.step(f"Failed {device.name}")
+        
+        progress.complete("Cognex validation")
         
         return self.results
     

@@ -241,31 +241,33 @@ class HMIVerifier:
         self.logger.info(f"Starting HMI verification for {len(hmi_configs)} devices")
         self.results = []
         
-        with ProgressLogger(self.logger, len(hmi_configs), "HMI Verification") as progress:
-            for config in hmi_configs:
-                try:
-                    result = self.verify_hmi(
-                        ip_address=config.get("ip_address", ""),
-                        port=config.get("port", 2222),
-                        expected_app_name=config.get("expected_app_name", ""),
-                        expected_version=config.get("expected_version", "")
-                    )
-                    self.results.append(result)
-                    progress.step(f"Completed {config.get('ip_address', 'Unknown')}")
-                except Exception as e:
-                    self.logger.error(f"Exception verifying HMI {config.get('ip_address', 'Unknown')}: {e}")
-                    error_result = HMIVerificationResult(
-                        ip_address=config.get("ip_address", ""),
-                        port=config.get("port", 2222),
-                        connection_successful=False,
-                        hmi_info=HMIInfo(ip_address=config.get("ip_address", "")),
-                        verification_timestamp=datetime.now().isoformat(),
-                        error_message=str(e),
-                        expected_app_name=config.get("expected_app_name", ""),
-                        expected_version=config.get("expected_version", "")
-                    )
-                    self.results.append(error_result)
-                    progress.step(f"Failed {config.get('ip_address', 'Unknown')}")
+        progress = ProgressLogger(self.logger, len(hmi_configs), "HMI Verification")
+        for config in hmi_configs:
+            try:
+                result = self.verify_hmi(
+                    ip_address=config.get("ip_address", ""),
+                    port=config.get("port", 2222),
+                    expected_app_name=config.get("expected_app_name", ""),
+                    expected_version=config.get("expected_version", "")
+                )
+                self.results.append(result)
+                progress.step(f"Completed {config.get('ip_address', 'Unknown')}")
+            except Exception as e:
+                self.logger.error(f"Exception verifying HMI {config.get('ip_address', 'Unknown')}: {e}")
+                error_result = HMIVerificationResult(
+                    ip_address=config.get("ip_address", ""),
+                    port=config.get("port", 2222),
+                    connection_successful=False,
+                    hmi_info=HMIInfo(ip_address=config.get("ip_address", "")),
+                    verification_timestamp=datetime.now().isoformat(),
+                    error_message=str(e),
+                    expected_app_name=config.get("expected_app_name", ""),
+                    expected_version=config.get("expected_version", "")
+                )
+                self.results.append(error_result)
+                progress.step(f"Failed {config.get('ip_address', 'Unknown')}")
+        
+        progress.complete("HMI verification")
         
         return self.results
     

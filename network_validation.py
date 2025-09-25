@@ -209,21 +209,26 @@ class NetworkValidator:
             }
             
             # Collect results as they complete
-            with ProgressLogger(self.logger, len(devices), "Network Validation") as progress:
-                for future in as_completed(future_to_device):
-                    ip, name = future_to_device[future]
-                    try:
-                        result = future.result()
-                        with self._lock:
-                            self.results.append(result)
-                        progress.step(f"Completed {name}")
-                    except Exception as e:
-                        self.logger.error(f"Exception validating {name} ({ip}): {e}")
-                        with self._lock:
-                            self.results.append(DeviceResult(
-                                ip=ip, name=name, status="Exception", error_message=str(e)
-                            ))
-                        progress.step(f"Failed {name}")
+            progress = ProgressLogger(self.logger, len(devices), "Network Validation")
+            completed = 0
+            for future in as_completed(future_to_device):
+                ip, name = future_to_device[future]
+                try:
+                    result = future.result()
+                    with self._lock:
+                        self.results.append(result)
+                    completed += 1
+                    progress.step(f"Completed {name}")
+                except Exception as e:
+                    self.logger.error(f"Exception validating {name} ({ip}): {e}")
+                    with self._lock:
+                        self.results.append(DeviceResult(
+                            ip=ip, name=name, status="Exception", error_message=str(e)
+                        ))
+                    completed += 1
+                    progress.step(f"Failed {name}")
+            
+            progress.complete("Network validation")
         
         # Sort results by IP address for consistent output
         self.results.sort(key=lambda x: ipaddress.ip_address(x.ip))

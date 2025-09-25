@@ -254,31 +254,33 @@ class PLCVerifier:
         self.logger.info(f"Starting PLC verification for {len(plc_configs)} controllers")
         self.results = []
         
-        with ProgressLogger(self.logger, len(plc_configs), "PLC Verification") as progress:
-            for config in plc_configs:
-                try:
-                    result = self.verify_plc(
-                        ip_address=config.get("ip_address", ""),
-                        expected_project_name=config.get("expected_project_name", ""),
-                        expected_major_revision=config.get("expected_major_revision", 0),
-                        expected_minor_revision=config.get("expected_minor_revision", 0)
-                    )
-                    self.results.append(result)
-                    progress.step(f"Completed {config.get('ip_address', 'Unknown')}")
-                except Exception as e:
-                    self.logger.error(f"Exception verifying PLC {config.get('ip_address', 'Unknown')}: {e}")
-                    error_result = PLCVerificationResult(
-                        ip_address=config.get("ip_address", ""),
-                        connection_successful=False,
-                        project_info=PLCProjectInfo(ip_address=config.get("ip_address", "")),
-                        verification_timestamp=datetime.now().isoformat(),
-                        error_message=str(e),
-                        expected_project_name=config.get("expected_project_name", ""),
-                        expected_major_revision=config.get("expected_major_revision", 0),
-                        expected_minor_revision=config.get("expected_minor_revision", 0)
-                    )
-                    self.results.append(error_result)
-                    progress.step(f"Failed {config.get('ip_address', 'Unknown')}")
+        progress = ProgressLogger(self.logger, len(plc_configs), "PLC Verification")
+        for config in plc_configs:
+            try:
+                result = self.verify_plc(
+                    ip_address=config.get("ip_address", ""),
+                    expected_project_name=config.get("expected_project_name", ""),
+                    expected_major_revision=config.get("expected_major_revision", 0),
+                    expected_minor_revision=config.get("expected_minor_revision", 0)
+                )
+                self.results.append(result)
+                progress.step(f"Completed {config.get('ip_address', 'Unknown')}")
+            except Exception as e:
+                self.logger.error(f"Exception verifying PLC {config.get('ip_address', 'Unknown')}: {e}")
+                error_result = PLCVerificationResult(
+                    ip_address=config.get("ip_address", ""),
+                    connection_successful=False,
+                    project_info=PLCProjectInfo(ip_address=config.get("ip_address", "")),
+                    verification_timestamp=datetime.now().isoformat(),
+                    error_message=str(e),
+                    expected_project_name=config.get("expected_project_name", ""),
+                    expected_major_revision=config.get("expected_major_revision", 0),
+                    expected_minor_revision=config.get("expected_minor_revision", 0)
+                )
+                self.results.append(error_result)
+                progress.step(f"Failed {config.get('ip_address', 'Unknown')}")
+        
+        progress.complete("PLC verification")
         
         return self.results
     

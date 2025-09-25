@@ -224,7 +224,7 @@ class EnhancedApp(tk.Tk):
         self.style = self._apply_dark_theme()
         
         # Initialize components
-        self.network_validator = NetworkValidator()
+        self.network_validator = None
         self.plc_validator = None
         
         # Build UI
@@ -774,6 +774,7 @@ class EnhancedApp(tk.Tk):
         def run_validation():
             try:
                 self.logger.info("Starting enhanced network validation")
+                self.network_validator = NetworkValidator(self.network_logger)
                 results = self.network_validator.validate_devices_concurrent(PROGRAM1_DEVICES)
                 self.network_results = results
                 
@@ -785,13 +786,14 @@ class EnhancedApp(tk.Tk):
                 
             except Exception as e:
                 self.logger.error(f"Network validation error: {e}")
+                self.network_text.insert(tk.END, f"Error: {e}\n")
                 self.after(0, lambda: self.network_progress.stop())
         
         self._run_in_thread(self.btn_network_run, run_validation)
     
     def _on_export_network_results(self):
         """Export network validation results to CSV"""
-        if not self.network_results:
+        if not self.network_results or not self.network_validator:
             messagebox.showwarning("No Data", "No network validation results to export")
             return
         
