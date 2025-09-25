@@ -152,9 +152,9 @@ class PLCConnectionManager:
 class EnhancedPLCValidator:
     """Enhanced PLC validation with better error handling and caching"""
     
-    def __init__(self, ip_address: str):
+    def __init__(self, ip_address: str, logger=None):
         self.ip_address = ip_address
-        self.logger = get_logger("PLCValidator")
+        self.logger = logger or get_logger("PLCValidator")
         self.connection_manager = PLCConnectionManager(ip_address)
         self._tag_cache: Dict[str, TagValue] = {}
         self._cache_timeout = 5.0  # 5 seconds

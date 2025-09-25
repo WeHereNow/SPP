@@ -79,8 +79,8 @@ class DeviceResult:
 class NetworkValidator:
     """Enhanced network validation with concurrent testing and better error handling"""
     
-    def __init__(self):
-        self.logger = get_logger("NetworkValidator")
+    def __init__(self, logger=None):
+        self.logger = logger or get_logger("NetworkValidator")
         self.results: List[DeviceResult] = []
         self._lock = threading.Lock()
     

@@ -88,7 +88,7 @@ except ImportError as e:
     
     # Mock classes for enhanced functionality
     class NetworkValidator:
-        def __init__(self):
+        def __init__(self, logger=None):
             pass
         def validate_devices_concurrent(self, devices):
             return []
@@ -101,7 +101,7 @@ except ImportError as e:
         pass
     
     class EnhancedPLCValidator:
-        def __init__(self, ip):
+        def __init__(self, ip, logger=None):
             pass
         def generate_comprehensive_report(self):
             return "Enhanced PLC validation not available"
@@ -822,7 +822,7 @@ class EnhancedApp(tk.Tk):
         def run_validation():
             try:
                 self.logger.info(f"Starting PLC validation for {ip}")
-                self.plc_validator = EnhancedPLCValidator(ip)
+                self.plc_validator = EnhancedPLCValidator(ip, self.plc_logger)
                 report = self.plc_validator.generate_comprehensive_report()
                 self.plc_text.insert(tk.END, report)
                 self.after(0, lambda: self.btn_plc_export.configure(state=tk.NORMAL))
