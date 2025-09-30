@@ -230,7 +230,7 @@ class EStopMonitor:
         # Determine if this is a state change
         state_changed = False
         
-        if current_status.estop_definitions[estop_id].is_dual_channel:
+        if self.estop_definitions[estop_id].is_dual_channel:
             # Dual channel E Stop - check both channels
             if channel == "A":
                 old_channel_state = current_status.channel_a_state
