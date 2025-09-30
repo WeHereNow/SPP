@@ -175,31 +175,41 @@ class EStopMonitor:
         return EStopState.ACTIVE if value else EStopState.INACTIVE
     
     def read_current_states(self) -> Dict[str, EStopStatus]:
-        """Read current E Stop states from PLC"""
+        """Read current E Stop states from PLC using the same approach as PLC validation"""
         try:
-            # Collect all tags to read
-            tags_to_read = []
-            tag_mapping = {}  # Maps tag to (estop_id, channel)
+            # Use the same SAFETY_TAGS list as the PLC validation script
+            safety_tags = [
+                'Program:SafetyProgram.SafetyIO.In.ESTOP_Relay1Feedback',
+                'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelA',
+                'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelB',
+                'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelA',
+                'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelB',
+                'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelA',
+                'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelB',
+                'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelA',
+                'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB',
+            ]
             
-            for estop_id, estop_info in self.estop_definitions.items():
-                if estop_info.is_dual_channel:
-                    # Add both channels
-                    tags_to_read.append(estop_info.channel_a_tag)
-                    tags_to_read.append(estop_info.channel_b_tag)
-                    tag_mapping[estop_info.channel_a_tag] = (estop_id, "A")
-                    tag_mapping[estop_info.channel_b_tag] = (estop_id, "B")
-                else:
-                    # Single channel
-                    tags_to_read.append(estop_info.tag)
-                    tag_mapping[estop_info.tag] = (estop_id, None)
+            # Create mapping from tags to E Stop IDs and channels
+            tag_mapping = {
+                'Program:SafetyProgram.SafetyIO.In.ESTOP_Relay1Feedback': ('relay_feedback', None),
+                'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelA': ('back_left', 'A'),
+                'Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelB': ('back_left', 'B'),
+                'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelA': ('back_right', 'A'),
+                'Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelB': ('back_right', 'B'),
+                'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelA': ('front', 'A'),
+                'Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelB': ('front', 'B'),
+                'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelA': ('main_enclosure', 'A'),
+                'Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB': ('main_enclosure', 'B'),
+            }
             
-            # Read all tags at once
+            # Read all safety tags at once (same as PLC validation script)
             with self.plc_connection_manager.get_connection() as plc:
-                results = plc.Read(tags_to_read)
+                results = plc.Read(safety_tags)
                 
                 if isinstance(results, list):
                     # Process results
-                    for tag, result in zip(tags_to_read, results):
+                    for tag, result in zip(safety_tags, results):
                         estop_id, channel = tag_mapping[tag]
                         
                         if result.Status == "Success":
@@ -208,6 +218,11 @@ class EStopMonitor:
                         else:
                             self.logger.warning(f"Failed to read {tag}: {result.Status}")
                             self.current_states[estop_id].read_error = result.Status
+                else:
+                    self.logger.error(f"Expected list of results, got {type(results)}")
+                    # Mark all as having read errors
+                    for estop_status in self.current_states.values():
+                        estop_status.read_error = "Invalid result type"
                 
                 # Update last read time
                 current_time = datetime.now()

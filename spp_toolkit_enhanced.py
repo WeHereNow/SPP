@@ -17,6 +17,7 @@ try:
     from logger import get_logger, ProgressLogger
     from network_validation import NetworkValidator, DeviceResult
     from plc_communication import EnhancedPLCValidator
+    from estop_monitor import EStopMonitor, EStopStateChange
     from cognex_validation import CognexValidator, CognexDevice, CognexResult
     from plc_verification import PLCVerifier, PLCVerificationResult
     from hmi_verification import HMIVerifier, HMIVerificationResult
@@ -196,6 +197,36 @@ except ImportError as e:
         
         def get_summary(self):
             return {"total_entries": 0, "fault_entries": 0, "warning_entries": 0, "docx_path": None}
+    
+    # Mock classes for E Stop monitoring
+    class EStopStateChange:
+        def __init__(self, timestamp, estop_name, old_state, new_state, channel=None, duration_seconds=None):
+            self.timestamp = timestamp
+            self.estop_name = estop_name
+            self.old_state = old_state
+            self.new_state = new_state
+            self.channel = channel
+            self.duration_seconds = duration_seconds
+    
+    class EStopMonitor:
+        def __init__(self, plc_connection_manager, logger=None):
+            self.logger = logger or get_logger("EStopMonitor")
+            self.monitoring_active = False
+        
+        def start_monitoring(self, interval=None):
+            self.logger.info("E Stop monitoring not available - enhanced modules not loaded")
+        
+        def stop_monitoring(self):
+            pass
+        
+        def read_current_states(self):
+            return {}
+        
+        def get_state_summary(self):
+            return {"error": "E Stop monitoring not available"}
+        
+        def generate_report(self):
+            return "E Stop monitoring not available - enhanced modules not loaded"
 
 # Import original modules for compatibility
 try:

@@ -83,6 +83,9 @@ except ImportError:
         def stop_monitoring(self):
             pass
         
+        def read_current_states(self):
+            return {}
+        
         def get_state_summary(self):
             return {"error": "E Stop monitoring not available"}
         
