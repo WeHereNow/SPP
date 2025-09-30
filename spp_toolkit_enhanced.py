@@ -529,7 +529,7 @@ class EnhancedApp(tk.Tk):
                                           command=self._on_generate_estop_report)
         self.btn_estop_report.pack(side=tk.LEFT, padx=6, pady=6)
         
-        self.btn_estop_export = ttk.Button(toolbar, text="Export Changes", 
+        self.btn_estop_export = ttk.Button(toolbar, text="Export Changes CSV", 
                                           command=self._on_export_estop_changes)
         self.btn_estop_export.pack(side=tk.LEFT, padx=6, pady=6)
         
@@ -1408,21 +1408,21 @@ class EnhancedApp(tk.Tk):
         self._run_in_thread(self.btn_estop_report, generate_report)
     
     def _on_export_estop_changes(self):
-        """Export E Stop changes to file"""
+        """Export E Stop changes to CSV file"""
         if not self.estop_validator or not self.estop_monitoring_active:
             messagebox.showwarning("Warning", "E Stop monitoring must be active to export changes")
             return
         
         filename = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
             title="Save E Stop State Changes"
         )
         
         if filename:
             try:
-                self.estop_validator.export_estop_changes(filename)
-                messagebox.showinfo("Export Complete", f"E Stop changes exported to:\n{filename}")
+                self.estop_validator.export_estop_changes_csv(filename)
+                messagebox.showinfo("Export Complete", f"E Stop changes exported to CSV:\n{filename}")
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export E Stop changes:\n{e}")
     

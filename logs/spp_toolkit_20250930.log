@@ -79,3 +79,25 @@
 2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Exported monitoring session report to test_monitoring_session_20250930_175802.csv
 2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
 2025-09-30 17:58:02,006 - EStopMonitor - INFO - info:107 - Exported monitoring session report to test_csv_format_20250930_175802.csv
+2025-09-30 18:41:49,597 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 18:41:49,597 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:49,597 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 18:41:50,598 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:51,598 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:52,598 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:52,598 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 18:41:52,599 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_export_changes_20250930_184152.csv
+2025-09-30 18:41:52,599 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_export_changes_20250930_184152.json
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 18:41:52,600 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 18:41:53,600 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:54,600 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_format_comparison_20250930_184154.csv
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_format_comparison_20250930_184154.json
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:42:16,413 - EStopMonitor - INFO - info:107 - Exported 6 state changes to test_export_changes_with_data_20250930_184216.csv
+2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Exported 6 state changes to test_validator_export_20250930_184216.csv
+2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
