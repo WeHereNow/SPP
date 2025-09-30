@@ -42,6 +42,12 @@ except ImportError as e:
             read_timeout = 10.0
             max_retries = 3
             retry_delay = 1.0
+        class EStopConfig:
+            default_monitor_interval = 1.0
+            change_detection_enabled = True
+            log_all_changes = True
+            max_history_size = 1000
+            auto_start_monitoring = False
         class UIConfig:
             window_size = "1120x760"
             window_title = "SPP All-In-One Toolkit — Enhanced"
@@ -50,6 +56,7 @@ except ImportError as e:
             theme = "dark"
         network = NetworkConfig()
         plc = PLCConfig()
+        estop = EStopConfig()
         ui = UIConfig()
     
     config = MockConfig()
@@ -351,7 +358,7 @@ class EnhancedApp(tk.Tk):
         
         ttk.Label(title_row, text="SPP All-In-One Toolkit", 
                  font=("Segoe UI Semibold", 14)).pack(side=tk.LEFT)
-        ttk.Label(title_row, text="Enhanced • Network • PLC • Cognex • Verification • Faults", 
+        ttk.Label(title_row, text="Enhanced • Network • PLC • E Stop Monitor • Cognex • Verification • Faults", 
                  foreground=SUBTEXT).pack(side=tk.LEFT, padx=12)
         
         # Status indicators
@@ -379,6 +386,7 @@ class EnhancedApp(tk.Tk):
         """Build all application tabs"""
         self._build_network_tab()
         self._build_plc_tab()
+        self._build_estop_monitor_tab()
         self._build_cognex_tab()
         self._build_plc_verification_tab()
         self._build_hmi_verification_tab()
@@ -450,6 +458,61 @@ class EnhancedApp(tk.Tk):
         
         # Results display
         self.plc_text, self.plc_logger = self._make_text_panel(tab)
+    
+    def _build_estop_monitor_tab(self):
+        """Build E Stop monitoring tab"""
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="E Stop Monitor")
+        
+        # Toolbar
+        toolbar = self._build_toolbar(tab, "E Stop State Change Monitor", "Monitor individual E Stop states for changes")
+        
+        # PLC IP input
+        ttk.Label(toolbar, text="PLC IP:").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_estop_ip = ttk.Entry(toolbar, width=24)
+        self.entry_estop_ip.insert(0, config.plc.default_ip)
+        self.entry_estop_ip.pack(side=tk.LEFT, padx=(0, 6))
+        
+        # Monitor interval
+        ttk.Label(toolbar, text="Interval (s):").pack(side=tk.LEFT, padx=(0, 6))
+        self.entry_estop_interval = ttk.Entry(toolbar, width=8)
+        self.entry_estop_interval.insert(0, "1.0")
+        self.entry_estop_interval.pack(side=tk.LEFT, padx=(0, 6))
+        
+        # Control buttons
+        self.btn_estop_start = ttk.Button(toolbar, text="Start Monitoring", 
+                                         style="Accent.TButton", 
+                                         command=self._on_start_estop_monitoring)
+        self.btn_estop_start.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_estop_stop = ttk.Button(toolbar, text="Stop Monitoring", 
+                                        command=self._on_stop_estop_monitoring)
+        self.btn_estop_stop.pack(side=tk.LEFT, padx=6, pady=6)
+        self.btn_estop_stop.configure(state=tk.DISABLED)
+        
+        self.btn_estop_status = ttk.Button(toolbar, text="Get Status", 
+                                          command=self._on_get_estop_status)
+        self.btn_estop_status.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_estop_report = ttk.Button(toolbar, text="Generate Report", 
+                                          command=self._on_generate_estop_report)
+        self.btn_estop_report.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        self.btn_estop_export = ttk.Button(toolbar, text="Export Changes", 
+                                          command=self._on_export_estop_changes)
+        self.btn_estop_export.pack(side=tk.LEFT, padx=6, pady=6)
+        
+        # Status indicator
+        self.estop_status_var = tk.StringVar(value="Not monitoring")
+        ttk.Label(toolbar, textvariable=self.estop_status_var, 
+                 foreground=SUBTEXT).pack(side=tk.RIGHT, padx=10)
+        
+        # Results display
+        self.estop_text, self.estop_logger = self._make_text_panel(tab)
+        
+        # Initialize monitoring state
+        self.estop_monitoring_active = False
+        self.estop_validator = None
     
     def _build_cognex_tab(self):
         """Build enhanced Cognex validation tab with CFG file comparison"""
@@ -720,6 +783,28 @@ class EnhancedApp(tk.Tk):
         self.entry_plc_timeout.insert(0, str(config.plc.connection_timeout))
         self.entry_plc_timeout.grid(row=0, column=3, sticky=tk.W)
         
+        # E Stop monitoring settings
+        estop_group = ttk.LabelFrame(settings_frame, text="E Stop Monitoring Settings", padding=10)
+        estop_group.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(estop_group, text="Default Monitor Interval (s):").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.entry_estop_interval = ttk.Entry(estop_group, width=10)
+        self.entry_estop_interval.insert(0, str(config.estop.default_monitor_interval))
+        self.entry_estop_interval.grid(row=0, column=1, sticky=tk.W)
+        
+        ttk.Label(estop_group, text="Max History Size:").grid(row=0, column=2, sticky=tk.W, padx=(20, 10))
+        self.entry_estop_history = ttk.Entry(estop_group, width=10)
+        self.entry_estop_history.insert(0, str(config.estop.max_history_size))
+        self.entry_estop_history.grid(row=0, column=3, sticky=tk.W)
+        
+        self.var_estop_auto_start = tk.BooleanVar(value=config.estop.auto_start_monitoring)
+        ttk.Checkbutton(estop_group, text="Auto-start monitoring on tab open", 
+                       variable=self.var_estop_auto_start).grid(row=1, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        
+        self.var_estop_log_changes = tk.BooleanVar(value=config.estop.log_all_changes)
+        ttk.Checkbutton(estop_group, text="Log all state changes", 
+                       variable=self.var_estop_log_changes).grid(row=1, column=2, columnspan=2, sticky=tk.W, pady=(10, 0))
+        
         # Save button
         ttk.Button(settings_frame, text="Save Settings", 
                   style="Accent.TButton", 
@@ -764,11 +849,12 @@ class EnhancedApp(tk.Tk):
         """Bind keyboard shortcuts"""
         self.bind('<Control-n>', lambda e: self.notebook.select(0))  # Network tab
         self.bind('<Control-p>', lambda e: self.notebook.select(1))  # PLC tab
-        self.bind('<Control-c>', lambda e: self.notebook.select(2))  # Cognex tab
-        self.bind('<Control-v>', lambda e: self.notebook.select(3))  # PLC Verification tab
-        self.bind('<Control-h>', lambda e: self.notebook.select(4))  # HMI Verification tab
-        self.bind('<Control-f>', lambda e: self.notebook.select(5))  # Faults tab
-        self.bind('<Control-s>', lambda e: self.notebook.select(6))  # Settings tab
+        self.bind('<Control-e>', lambda e: self.notebook.select(2))  # E Stop Monitor tab
+        self.bind('<Control-c>', lambda e: self.notebook.select(3))  # Cognex tab
+        self.bind('<Control-v>', lambda e: self.notebook.select(4))  # PLC Verification tab
+        self.bind('<Control-h>', lambda e: self.notebook.select(5))  # HMI Verification tab
+        self.bind('<Control-f>', lambda e: self.notebook.select(6))  # Faults tab
+        self.bind('<Control-s>', lambda e: self.notebook.select(7))  # Settings tab
         self.bind('<F5>', lambda e: self._refresh_current_tab())
     
     def _refresh_current_tab(self):
@@ -778,11 +864,13 @@ class EnhancedApp(tk.Tk):
             self._on_run_network_validation()
         elif current_tab == 1:  # PLC tab
             self._on_run_plc_validation()
-        elif current_tab == 2:  # Cognex tab
+        elif current_tab == 2:  # E Stop Monitor tab
+            self._on_get_estop_status()
+        elif current_tab == 3:  # Cognex tab
             self._on_run_cognex_validation()
-        elif current_tab == 3:  # PLC Verification tab
+        elif current_tab == 4:  # PLC Verification tab
             self._on_run_plc_verification()
-        elif current_tab == 4:  # HMI Verification tab
+        elif current_tab == 5:  # HMI Verification tab
             self._on_run_hmi_verification()
     
     def _run_in_thread(self, button, target, *args, **kwargs):
@@ -1081,6 +1169,201 @@ class EnhancedApp(tk.Tk):
                     self.plc_validator.close()
         
         self._run_in_thread(self.btn_plc_test_tags, test_tags)
+    
+    def _on_start_estop_monitoring(self):
+        """Start E Stop monitoring"""
+        ip = self.entry_estop_ip.get().strip()
+        interval_str = self.entry_estop_interval.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        try:
+            interval = float(interval_str)
+            if interval < 0.1 or interval > 60.0:
+                messagebox.showerror("Error", "Interval must be between 0.1 and 60.0 seconds")
+                return
+        except ValueError:
+            messagebox.showerror("Error", "Please enter a valid interval (number)")
+            return
+        
+        if self.estop_monitoring_active:
+            messagebox.showwarning("Warning", "E Stop monitoring is already active")
+            return
+        
+        def start_monitoring():
+            try:
+                self.logger.info(f"Starting E Stop monitoring for {ip} with {interval}s interval")
+                self.estop_text.delete("1.0", tk.END)
+                self.estop_text.insert(tk.END, f"Starting E Stop monitoring for {ip}...\n")
+                self.estop_text.insert(tk.END, f"Monitor interval: {interval} seconds\n")
+                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
+                
+                # Create validator and start monitoring
+                self.estop_validator = EnhancedPLCValidator(ip, self.estop_logger)
+                
+                # Add callback for state changes
+                def on_estop_change(change):
+                    timestamp = change.timestamp.strftime('%H:%M:%S')
+                    channel_info = f" [Channel {change.channel}]" if change.channel else ""
+                    duration_info = f" (Duration: {change.duration_seconds:.1f}s)" if change.duration_seconds else ""
+                    
+                    self.estop_text.insert(tk.END, 
+                        f"[{timestamp}] {change.estop_name}: {change.old_state.value} -> {change.new_state.value}"
+                        f"{channel_info}{duration_info}\n")
+                    self.estop_text.see(tk.END)
+                
+                self.estop_validator.add_estop_change_callback(on_estop_change)
+                
+                # Start monitoring
+                self.estop_validator.start_estop_monitoring(interval)
+                
+                # Update UI state
+                self.after(0, lambda: self.btn_estop_start.configure(state=tk.DISABLED))
+                self.after(0, lambda: self.btn_estop_stop.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.estop_status_var.set(f"Monitoring {ip} ({interval}s)"))
+                self.after(0, lambda: setattr(self, 'estop_monitoring_active', True))
+                
+                self.estop_text.insert(tk.END, "✓ E Stop monitoring started successfully\n")
+                self.estop_text.insert(tk.END, "Waiting for state changes...\n\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error starting E Stop monitoring: {e}")
+                self.estop_text.insert(tk.END, f"✗ Error starting monitoring: {e}\n")
+                self.after(0, lambda: self.btn_estop_start.configure(state=tk.NORMAL))
+        
+        self._run_in_thread(self.btn_estop_start, start_monitoring)
+    
+    def _on_stop_estop_monitoring(self):
+        """Stop E Stop monitoring"""
+        if not self.estop_monitoring_active:
+            return
+        
+        def stop_monitoring():
+            try:
+                self.logger.info("Stopping E Stop monitoring")
+                self.estop_text.insert(tk.END, "\n" + "=" * 60 + "\n")
+                self.estop_text.insert(tk.END, "Stopping E Stop monitoring...\n")
+                
+                if self.estop_validator:
+                    self.estop_validator.stop_estop_monitoring()
+                    self.estop_validator.close()
+                    self.estop_validator = None
+                
+                # Update UI state
+                self.after(0, lambda: self.btn_estop_start.configure(state=tk.NORMAL))
+                self.after(0, lambda: self.btn_estop_stop.configure(state=tk.DISABLED))
+                self.after(0, lambda: self.estop_status_var.set("Not monitoring"))
+                self.after(0, lambda: setattr(self, 'estop_monitoring_active', False))
+                
+                self.estop_text.insert(tk.END, "✓ E Stop monitoring stopped\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error stopping E Stop monitoring: {e}")
+                self.estop_text.insert(tk.END, f"✗ Error stopping monitoring: {e}\n")
+        
+        self._run_in_thread(self.btn_estop_stop, stop_monitoring)
+    
+    def _on_get_estop_status(self):
+        """Get current E Stop status"""
+        ip = self.entry_estop_ip.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        def get_status():
+            try:
+                self.logger.info(f"Getting E Stop status for {ip}")
+                self.estop_text.delete("1.0", tk.END)
+                self.estop_text.insert(tk.END, f"Getting E Stop status for {ip}...\n")
+                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
+                
+                # Create validator and get status
+                validator = EnhancedPLCValidator(ip, self.estop_logger)
+                status = validator.get_estop_status()
+                validator.close()
+                
+                if "error" in status:
+                    self.estop_text.insert(tk.END, f"Error: {status['error']}\n")
+                    return
+                
+                # Display status
+                self.estop_text.insert(tk.END, f"E Stop Status Report - {status['timestamp']}\n")
+                self.estop_text.insert(tk.END, f"Monitoring Active: {'Yes' if status['monitoring_active'] else 'No'}\n")
+                self.estop_text.insert(tk.END, f"Monitor Interval: {status['monitor_interval']}s\n\n")
+                
+                for estop_id, estop_data in status['estops'].items():
+                    self.estop_text.insert(tk.END, f"{estop_data['name']} ({estop_data['location']}):\n")
+                    self.estop_text.insert(tk.END, f"  Current State: {estop_data['current_state'].upper()}\n")
+                    
+                    if estop_data['is_dual_channel']:
+                        self.estop_text.insert(tk.END, f"  Channel A: {estop_data['channel_a_state'].upper() if estop_data['channel_a_state'] else 'UNKNOWN'}\n")
+                        self.estop_text.insert(tk.END, f"  Channel B: {estop_data['channel_b_state'].upper() if estop_data['channel_b_state'] else 'UNKNOWN'}\n")
+                    
+                    self.estop_text.insert(tk.END, f"  Total Changes: {estop_data['total_changes']}\n")
+                    
+                    if estop_data['last_change_time']:
+                        self.estop_text.insert(tk.END, f"  Last Change: {estop_data['last_change_time']}\n")
+                    
+                    if estop_data['read_error']:
+                        self.estop_text.insert(tk.END, f"  Read Error: {estop_data['read_error']}\n")
+                    
+                    self.estop_text.insert(tk.END, "\n")
+                
+            except Exception as e:
+                self.logger.error(f"Error getting E Stop status: {e}")
+                self.estop_text.insert(tk.END, f"Error: {e}\n")
+        
+        self._run_in_thread(self.btn_estop_status, get_status)
+    
+    def _on_generate_estop_report(self):
+        """Generate E Stop monitoring report"""
+        ip = self.entry_estop_ip.get().strip()
+        
+        if not ip:
+            messagebox.showerror("Error", "Please enter a PLC IP address")
+            return
+        
+        def generate_report():
+            try:
+                self.logger.info(f"Generating E Stop report for {ip}")
+                self.estop_text.delete("1.0", tk.END)
+                self.estop_text.insert(tk.END, f"Generating E Stop report for {ip}...\n")
+                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
+                
+                # Create validator and generate report
+                validator = EnhancedPLCValidator(ip, self.estop_logger)
+                report = validator.generate_estop_report()
+                validator.close()
+                
+                self.estop_text.insert(tk.END, report)
+                
+            except Exception as e:
+                self.logger.error(f"Error generating E Stop report: {e}")
+                self.estop_text.insert(tk.END, f"Error: {e}\n")
+        
+        self._run_in_thread(self.btn_estop_report, generate_report)
+    
+    def _on_export_estop_changes(self):
+        """Export E Stop changes to file"""
+        if not self.estop_validator or not self.estop_monitoring_active:
+            messagebox.showwarning("Warning", "E Stop monitoring must be active to export changes")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+            title="Save E Stop State Changes"
+        )
+        
+        if filename:
+            try:
+                self.estop_validator.export_estop_changes(filename)
+                messagebox.showinfo("Export Complete", f"E Stop changes exported to:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Export Error", f"Failed to export E Stop changes:\n{e}")
     
     def _on_export_plc_report(self):
         """Export PLC report to file"""
@@ -1529,6 +1812,16 @@ class EnhancedApp(tk.Tk):
             # Update PLC settings
             config.plc.default_ip = self.entry_plc_default.get()
             config.plc.connection_timeout = float(self.entry_plc_timeout.get())
+            
+            # Update E Stop monitoring settings
+            config.estop.default_monitor_interval = float(self.entry_estop_interval.get())
+            config.estop.max_history_size = int(self.entry_estop_history.get())
+            config.estop.auto_start_monitoring = self.var_estop_auto_start.get()
+            config.estop.log_all_changes = self.var_estop_log_changes.get()
+            
+            # Update UI with new default interval
+            self.entry_estop_interval.delete(0, tk.END)
+            self.entry_estop_interval.insert(0, str(config.estop.default_monitor_interval))
             
             messagebox.showinfo("Settings Saved", "Settings have been saved successfully")
             self.logger.info("Settings saved successfully")

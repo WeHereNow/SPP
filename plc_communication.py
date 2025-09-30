@@ -10,6 +10,7 @@ from contextlib import contextmanager
 try:
     from config import config
     from logger import get_logger, ProgressLogger
+    from estop_monitor import EStopMonitor, EStopStateChange
 except ImportError:
     # Fallback for when modules aren't available
     class MockConfig:
@@ -60,6 +61,33 @@ except ImportError:
         
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+    
+    # Mock classes for E Stop monitoring
+    class EStopStateChange:
+        def __init__(self, timestamp, estop_name, old_state, new_state, channel=None, duration_seconds=None):
+            self.timestamp = timestamp
+            self.estop_name = estop_name
+            self.old_state = old_state
+            self.new_state = new_state
+            self.channel = channel
+            self.duration_seconds = duration_seconds
+    
+    class EStopMonitor:
+        def __init__(self, plc_connection_manager, logger=None):
+            self.logger = logger or get_logger("EStopMonitor")
+            self.monitoring_active = False
+        
+        def start_monitoring(self, interval=None):
+            self.logger.info("E Stop monitoring not available - enhanced modules not loaded")
+        
+        def stop_monitoring(self):
+            pass
+        
+        def get_state_summary(self):
+            return {"error": "E Stop monitoring not available"}
+        
+        def generate_report(self):
+            return "E Stop monitoring not available - enhanced modules not loaded"
 
 try:
     from pylogix import PLC
@@ -213,6 +241,9 @@ class EnhancedPLCValidator:
         self.connection_manager = PLCConnectionManager(ip_address)
         self._tag_cache: Dict[str, TagValue] = {}
         self._cache_timeout = 5.0  # 5 seconds
+        
+        # Initialize E Stop monitor
+        self.estop_monitor = EStopMonitor(self.connection_manager, self.logger)
     
     def _is_cache_valid(self, tag: str) -> bool:
         """Check if cached tag value is still valid"""
@@ -457,6 +488,45 @@ class EnhancedPLCValidator:
         
         return results
     
+    def start_estop_monitoring(self, interval: float = 1.0):
+        """Start E Stop state change monitoring"""
+        self.logger.info(f"Starting E Stop monitoring with {interval}s interval")
+        self.estop_monitor.start_monitoring(interval)
+    
+    def stop_estop_monitoring(self):
+        """Stop E Stop state change monitoring"""
+        self.logger.info("Stopping E Stop monitoring")
+        self.estop_monitor.stop_monitoring()
+    
+    def get_estop_status(self) -> Dict[str, Any]:
+        """Get current E Stop status summary"""
+        return self.estop_monitor.get_state_summary()
+    
+    def get_estop_recent_changes(self, count: int = 10) -> List[EStopStateChange]:
+        """Get recent E Stop state changes"""
+        return self.estop_monitor.get_recent_changes(count)
+    
+    def get_estop_changes_for_estop(self, estop_id: str, count: int = 10) -> List[EStopStateChange]:
+        """Get recent changes for a specific E Stop"""
+        return self.estop_monitor.get_changes_for_estop(estop_id, count)
+    
+    def export_estop_changes(self, filename: str):
+        """Export E Stop state changes to JSON file"""
+        self.estop_monitor.export_changes_to_json(filename)
+    
+    def generate_estop_report(self) -> str:
+        """Generate E Stop monitoring report"""
+        return self.estop_monitor.generate_report()
+    
+    def add_estop_change_callback(self, callback):
+        """Add callback for E Stop state changes"""
+        self.estop_monitor.add_state_change_callback(callback)
+    
+    def remove_estop_change_callback(self, callback):
+        """Remove E Stop state change callback"""
+        self.estop_monitor.remove_state_change_callback(callback)
+    
     def close(self):
-        """Close the PLC connection"""
+        """Close the PLC connection and stop monitoring"""
+        self.stop_estop_monitoring()
         self.connection_manager.close()
