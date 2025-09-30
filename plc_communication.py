@@ -517,6 +517,14 @@ class EnhancedPLCValidator:
         """Export E Stop state changes to JSON file"""
         self.estop_monitor.export_changes_to_json(filename)
     
+    def export_estop_changes_csv(self, filename: str):
+        """Export E Stop state changes to CSV file with timestamps"""
+        self.estop_monitor.export_changes_to_csv(filename)
+    
+    def generate_estop_summary(self) -> Dict[str, Any]:
+        """Generate comprehensive E Stop monitoring session summary"""
+        return self.estop_monitor.generate_summary()
+    
     def generate_estop_report(self) -> str:
         """Generate E Stop monitoring report"""
         return self.estop_monitor.generate_report()

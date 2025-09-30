@@ -92,16 +92,65 @@ def main():
             print(f"{estop_data['name']}: {estop_data['current_state'].upper()} "
                   f"(Total Changes: {estop_data['total_changes']})")
         
-        # Generate report
-        print("\nGenerating E Stop monitoring report...")
+        # Generate comprehensive summary
+        print("\nGenerating monitoring session summary...")
+        summary = validator.generate_estop_summary()
+        
+        # Display summary
+        print("\n" + "="*60)
+        print("E STOP MONITORING SESSION SUMMARY")
+        print("="*60)
+        
+        session_info = summary["session_info"]
+        print(f"Session End Time: {session_info['end_time']}")
+        if session_info['start_time']:
+            print(f"Session Start Time: {session_info['start_time']}")
+            if session_info['duration_seconds']:
+                duration_min = session_info['duration_seconds'] / 60
+                print(f"Session Duration: {duration_min:.1f} minutes")
+        print(f"Monitoring Interval: {session_info['monitoring_interval']}s")
+        print(f"Total Reads: {session_info['total_reads']}")
+        
+        # Change statistics
+        change_stats = summary["change_statistics"]
+        print(f"\nCHANGE STATISTICS:")
+        print(f"  Total State Changes: {change_stats['total_changes']}")
+        
+        if change_stats['changes_by_estop']:
+            print(f"  Changes by E Stop:")
+            for estop_name, count in change_stats['changes_by_estop'].items():
+                print(f"    - {estop_name}: {count} changes")
+        
+        # Export options
+        print(f"\nEXPORT OPTIONS:")
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+        # JSON export
+        json_filename = f"estop_changes_{timestamp}.json"
+        print(f"Exporting state changes to JSON: {json_filename}")
+        validator.export_estop_changes(json_filename)
+        print(f"  JSON export complete")
+        
+        # CSV export
+        csv_filename = f"estop_changes_{timestamp}.csv"
+        print(f"Exporting state changes to CSV: {csv_filename}")
+        validator.export_estop_changes_csv(csv_filename)
+        print(f"  CSV export complete")
+        
+        # Summary export
+        summary_filename = f"estop_summary_{timestamp}.json"
+        print(f"Exporting session summary: {summary_filename}")
+        import json
+        with open(summary_filename, 'w') as f:
+            json.dump(summary, f, indent=2)
+        print(f"  Summary export complete")
+        
+        print(f"\nAll exports saved with timestamp: {timestamp}")
+        
+        # Generate detailed report
+        print("\nGenerating detailed E Stop monitoring report...")
         report = validator.generate_estop_report()
         print(report)
-        
-        # Export changes to file
-        export_filename = f"estop_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        print(f"Exporting state changes to {export_filename}...")
-        validator.export_estop_changes(export_filename)
-        print(f"Export complete: {export_filename}")
         
         # Close connection
         validator.close()

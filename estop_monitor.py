@@ -411,6 +411,125 @@ class EStopMonitor:
         except Exception as e:
             self.logger.error(f"Error exporting changes to JSON: {e}")
     
+    def export_changes_to_csv(self, filename: str):
+        """Export state changes to CSV file with timestamps"""
+        try:
+            import csv
+            
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                fieldnames = [
+                    'timestamp', 'date', 'time', 'estop_name', 'location', 
+                    'old_state', 'new_state', 'channel', 'duration_seconds'
+                ]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                
+                # Write header
+                writer.writeheader()
+                
+                # Write data rows
+                for change in self.state_changes:
+                    # Find estop_id from estop_name
+                    estop_id = None
+                    for eid, estop_def in self.estop_definitions.items():
+                        if estop_def.name == change.estop_name:
+                            estop_id = eid
+                            break
+                    
+                    estop_info = self.estop_definitions.get(estop_id, None)
+                    location = estop_info.location if estop_info else "Unknown"
+                    
+                    writer.writerow({
+                        'timestamp': change.timestamp.isoformat(),
+                        'date': change.timestamp.strftime('%Y-%m-%d'),
+                        'time': change.timestamp.strftime('%H:%M:%S.%f')[:-3],  # Include milliseconds
+                        'estop_name': change.estop_name,
+                        'location': location,
+                        'old_state': change.old_state.value.upper(),
+                        'new_state': change.new_state.value.upper(),
+                        'channel': change.channel or '',
+                        'duration_seconds': f"{change.duration_seconds:.3f}" if change.duration_seconds else ''
+                    })
+            
+            self.logger.info(f"Exported {len(self.state_changes)} state changes to {filename}")
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting changes to CSV: {e}")
+    
+    def generate_summary(self) -> Dict[str, Any]:
+        """Generate a comprehensive summary of the monitoring session"""
+        summary = {
+            "session_info": {
+                "start_time": None,
+                "end_time": datetime.now().isoformat(),
+                "duration_seconds": None,
+                "monitoring_interval": self.monitor_interval,
+                "total_reads": len(self.state_changes) + len(self.current_states),
+                "monitoring_active": self.monitoring_active
+            },
+            "estop_summary": {},
+            "change_statistics": {
+                "total_changes": len(self.state_changes),
+                "changes_by_estop": {},
+                "changes_by_state": {"active": 0, "inactive": 0},
+                "changes_by_channel": {"A": 0, "B": 0, "single": 0}
+            },
+            "current_states": {}
+        }
+        
+        # Calculate session duration if we have changes
+        if self.state_changes:
+            first_change = min(self.state_changes, key=lambda x: x.timestamp)
+            last_change = max(self.state_changes, key=lambda x: x.timestamp)
+            summary["session_info"]["start_time"] = first_change.timestamp.isoformat()
+            duration = last_change.timestamp - first_change.timestamp
+            summary["session_info"]["duration_seconds"] = duration.total_seconds()
+        
+        # E Stop summary
+        for estop_id, status in self.current_states.items():
+            estop_info = self.estop_definitions[estop_id]
+            summary["estop_summary"][estop_id] = {
+                "name": status.name,
+                "location": estop_info.location,
+                "current_state": status.state.value,
+                "total_changes": status.total_changes,
+                "last_change_time": status.last_change.timestamp.isoformat() if status.last_change else None,
+                "is_dual_channel": estop_info.is_dual_channel
+            }
+            
+            if estop_info.is_dual_channel:
+                summary["estop_summary"][estop_id]["channel_a_state"] = status.channel_a_state.value if status.channel_a_state else "unknown"
+                summary["estop_summary"][estop_id]["channel_b_state"] = status.channel_b_state.value if status.channel_b_state else "unknown"
+        
+        # Change statistics
+        for change in self.state_changes:
+            # Count by E Stop
+            if change.estop_name not in summary["change_statistics"]["changes_by_estop"]:
+                summary["change_statistics"]["changes_by_estop"][change.estop_name] = 0
+            summary["change_statistics"]["changes_by_estop"][change.estop_name] += 1
+            
+            # Count by state
+            if change.new_state.value == "active":
+                summary["change_statistics"]["changes_by_state"]["active"] += 1
+            elif change.new_state.value == "inactive":
+                summary["change_statistics"]["changes_by_state"]["inactive"] += 1
+            
+            # Count by channel
+            if change.channel:
+                if change.channel in summary["change_statistics"]["changes_by_channel"]:
+                    summary["change_statistics"]["changes_by_channel"][change.channel] += 1
+            else:
+                summary["change_statistics"]["changes_by_channel"]["single"] += 1
+        
+        # Current states
+        for estop_id, status in self.current_states.items():
+            summary["current_states"][estop_id] = {
+                "state": status.state.value,
+                "read_error": status.read_error,
+                "last_read_time": status.last_read_time.isoformat() if status.last_read_time else None
+            }
+        
+        return summary
+    
     def generate_report(self) -> str:
         """Generate a comprehensive E Stop monitoring report"""
         report_lines = []
