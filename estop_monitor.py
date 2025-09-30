@@ -537,6 +537,9 @@ class EStopMonitor:
     
     def generate_report(self) -> str:
         """Generate a comprehensive E Stop monitoring report"""
+        # Attempt to read current states first to get latest connection status
+        self.read_current_states()
+        
         report_lines = []
         report_lines.append("\n" + "=" * 80)
         report_lines.append("E STOP STATE MONITORING REPORT")
