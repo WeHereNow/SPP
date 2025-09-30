@@ -535,6 +535,275 @@ class EStopMonitor:
         
         return summary
     
+    def generate_monitoring_session_report(self) -> str:
+        """Generate a comprehensive monitoring session report"""
+        # Attempt to read current states first to get latest connection status
+        self.read_current_states()
+        
+        report_lines = []
+        report_lines.append("\n" + "=" * 80)
+        report_lines.append("E STOP MONITORING SESSION REPORT")
+        report_lines.append("=" * 80)
+        report_lines.append(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append(f"Monitoring Active: {'Yes' if self.monitoring_active else 'No'}")
+        report_lines.append(f"Monitor Interval: {self.monitor_interval}s")
+        report_lines.append(f"Total State Changes Recorded: {len(self.state_changes)}")
+        report_lines.append("")
+        
+        # Session information
+        if self.state_changes:
+            first_change = min(self.state_changes, key=lambda x: x.timestamp)
+            last_change = max(self.state_changes, key=lambda x: x.timestamp)
+            session_duration = last_change.timestamp - first_change.timestamp
+            
+            report_lines.append("MONITORING SESSION INFORMATION:")
+            report_lines.append("-" * 40)
+            report_lines.append(f"Session Start: {first_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+            report_lines.append(f"Session End: {last_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+            report_lines.append(f"Session Duration: {session_duration.total_seconds():.1f} seconds ({session_duration.total_seconds()/60:.1f} minutes)")
+            report_lines.append(f"Total Read Attempts: {len(self.state_changes) + len(self.current_states)}")
+            report_lines.append("")
+        
+        # Connection status
+        has_read_errors = any(status.read_error for status in self.current_states.values())
+        if has_read_errors:
+            report_lines.append("⚠️  PLC CONNECTION STATUS:")
+            report_lines.append("-" * 40)
+            report_lines.append("❌ PLC Connection Issues Detected")
+            report_lines.append("   E Stop states showing as 'UNKNOWN' due to connection problems.")
+            report_lines.append("   This is expected when:")
+            report_lines.append("   - pylogix library is not installed")
+            report_lines.append("   - PLC is not accessible on the network")
+            report_lines.append("   - PLC IP address is incorrect")
+            report_lines.append("")
+        
+        # Current states
+        report_lines.append("CURRENT E STOP STATES:")
+        report_lines.append("-" * 40)
+        for estop_id, status in self.current_states.items():
+            estop_info = self.estop_definitions[estop_id]
+            report_lines.append(f"{status.name} ({estop_info.location}):")
+            
+            # Show state with appropriate indicator
+            if status.read_error:
+                report_lines.append(f"  Current State: {status.state.value.upper()} (⚠️  Connection Error)")
+            else:
+                report_lines.append(f"  Current State: {status.state.value.upper()}")
+            
+            if estop_info.is_dual_channel:
+                channel_a_state = status.channel_a_state.value.upper() if status.channel_a_state else 'UNKNOWN'
+                channel_b_state = status.channel_b_state.value.upper() if status.channel_b_state else 'UNKNOWN'
+                report_lines.append(f"  Channel A: {channel_a_state}")
+                report_lines.append(f"  Channel B: {channel_b_state}")
+            
+            report_lines.append(f"  Total Changes: {status.total_changes}")
+            
+            if status.last_read_time:
+                report_lines.append(f"  Last Read: {status.last_read_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            if status.last_change:
+                report_lines.append(f"  Last Change: {status.last_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                report_lines.append(f"    {status.last_change.old_state.value} -> {status.last_change.new_state.value}")
+                if status.last_change.channel:
+                    report_lines.append(f"    Channel: {status.last_change.channel}")
+            
+            if status.read_error:
+                report_lines.append(f"  Read Error: {status.read_error}")
+            
+            report_lines.append("")
+        
+        # State change statistics
+        if self.state_changes:
+            report_lines.append("STATE CHANGE STATISTICS:")
+            report_lines.append("-" * 40)
+            
+            # Changes by E Stop
+            changes_by_estop = {}
+            for change in self.state_changes:
+                if change.estop_name not in changes_by_estop:
+                    changes_by_estop[change.estop_name] = 0
+                changes_by_estop[change.estop_name] += 1
+            
+            report_lines.append("Changes by E Stop:")
+            for estop_name, count in changes_by_estop.items():
+                report_lines.append(f"  {estop_name}: {count} changes")
+            report_lines.append("")
+            
+            # Changes by state
+            active_changes = sum(1 for change in self.state_changes if change.new_state.value == "active")
+            inactive_changes = sum(1 for change in self.state_changes if change.new_state.value == "inactive")
+            
+            report_lines.append("Changes by State:")
+            report_lines.append(f"  ACTIVE: {active_changes}")
+            report_lines.append(f"  INACTIVE: {inactive_changes}")
+            report_lines.append("")
+            
+            # Changes by channel
+            channel_changes = {"A": 0, "B": 0, "Single": 0}
+            for change in self.state_changes:
+                if change.channel:
+                    if change.channel in channel_changes:
+                        channel_changes[change.channel] += 1
+                else:
+                    channel_changes["Single"] += 1
+            
+            report_lines.append("Changes by Channel:")
+            for channel, count in channel_changes.items():
+                if count > 0:
+                    report_lines.append(f"  Channel {channel}: {count} changes")
+            report_lines.append("")
+        
+        # Recent changes
+        recent_changes = self.get_recent_changes(20)
+        if recent_changes:
+            report_lines.append("RECENT STATE CHANGES:")
+            report_lines.append("-" * 40)
+            for change in recent_changes:
+                timestamp = change.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                channel_info = f" [Channel {change.channel}]" if change.channel else ""
+                duration_info = f" (Duration: {change.duration_seconds:.1f}s)" if change.duration_seconds else ""
+                
+                report_lines.append(f"{timestamp}: {change.estop_name}")
+                report_lines.append(f"  {change.old_state.value.upper()} -> {change.new_state.value.upper()}{channel_info}{duration_info}")
+            report_lines.append("")
+        
+        report_lines.append("=" * 80)
+        report_lines.append("End of E Stop Monitoring Session Report")
+        report_lines.append("=" * 80)
+        
+        return "\n".join(report_lines)
+    
+    def export_monitoring_session_to_csv(self, filename: str):
+        """Export comprehensive monitoring session data to CSV"""
+        try:
+            import csv
+            
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                # Write session summary
+                fieldnames = [
+                    'report_type', 'timestamp', 'value', 'description'
+                ]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                # Session information
+                current_time = datetime.now()
+                writer.writerow({
+                    'report_type': 'SESSION_INFO',
+                    'timestamp': current_time.isoformat(),
+                    'value': 'Report Generated',
+                    'description': f'Monitoring Session Report - {current_time.strftime("%Y-%m-%d %H:%M:%S")}'
+                })
+                
+                writer.writerow({
+                    'report_type': 'SESSION_INFO',
+                    'timestamp': current_time.isoformat(),
+                    'value': str(self.monitoring_active),
+                    'description': 'Monitoring Active'
+                })
+                
+                writer.writerow({
+                    'report_type': 'SESSION_INFO',
+                    'timestamp': current_time.isoformat(),
+                    'value': f'{self.monitor_interval}s',
+                    'description': 'Monitor Interval'
+                })
+                
+                writer.writerow({
+                    'report_type': 'SESSION_INFO',
+                    'timestamp': current_time.isoformat(),
+                    'value': str(len(self.state_changes)),
+                    'description': 'Total State Changes Recorded'
+                })
+                
+                # Session duration
+                if self.state_changes:
+                    first_change = min(self.state_changes, key=lambda x: x.timestamp)
+                    last_change = max(self.state_changes, key=lambda x: x.timestamp)
+                    session_duration = last_change.timestamp - first_change.timestamp
+                    
+                    writer.writerow({
+                        'report_type': 'SESSION_INFO',
+                        'timestamp': first_change.timestamp.isoformat(),
+                        'value': 'Session Start',
+                        'description': first_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    })
+                    
+                    writer.writerow({
+                        'report_type': 'SESSION_INFO',
+                        'timestamp': last_change.timestamp.isoformat(),
+                        'value': 'Session End',
+                        'description': last_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    })
+                    
+                    writer.writerow({
+                        'report_type': 'SESSION_INFO',
+                        'timestamp': current_time.isoformat(),
+                        'value': f'{session_duration.total_seconds():.1f}',
+                        'description': f'Session Duration (seconds)'
+                    })
+                
+                # Current E Stop states
+                for estop_id, status in self.current_states.items():
+                    estop_info = self.estop_definitions[estop_id]
+                    
+                    writer.writerow({
+                        'report_type': 'CURRENT_STATE',
+                        'timestamp': status.last_read_time.isoformat() if status.last_read_time else current_time.isoformat(),
+                        'value': status.state.value.upper(),
+                        'description': f'{status.name} ({estop_info.location}) - Current State'
+                    })
+                    
+                    if estop_info.is_dual_channel:
+                        channel_a_state = status.channel_a_state.value.upper() if status.channel_a_state else 'UNKNOWN'
+                        channel_b_state = status.channel_b_state.value.upper() if status.channel_b_state else 'UNKNOWN'
+                        
+                        writer.writerow({
+                            'report_type': 'CURRENT_STATE',
+                            'timestamp': status.last_read_time.isoformat() if status.last_read_time else current_time.isoformat(),
+                            'value': channel_a_state,
+                            'description': f'{status.name} - Channel A State'
+                        })
+                        
+                        writer.writerow({
+                            'report_type': 'CURRENT_STATE',
+                            'timestamp': status.last_read_time.isoformat() if status.last_read_time else current_time.isoformat(),
+                            'value': channel_b_state,
+                            'description': f'{status.name} - Channel B State'
+                        })
+                    
+                    writer.writerow({
+                        'report_type': 'CURRENT_STATE',
+                        'timestamp': current_time.isoformat(),
+                        'value': str(status.total_changes),
+                        'description': f'{status.name} - Total Changes'
+                    })
+                    
+                    if status.read_error:
+                        writer.writerow({
+                            'report_type': 'CURRENT_STATE',
+                            'timestamp': status.last_read_time.isoformat() if status.last_read_time else current_time.isoformat(),
+                            'value': 'ERROR',
+                            'description': f'{status.name} - Read Error: {status.read_error}'
+                        })
+                
+                # State changes
+                for change in self.state_changes:
+                    channel_info = f" [Channel {change.channel}]" if change.channel else ""
+                    duration_info = f" (Duration: {change.duration_seconds:.1f}s)" if change.duration_seconds else ""
+                    
+                    writer.writerow({
+                        'report_type': 'STATE_CHANGE',
+                        'timestamp': change.timestamp.isoformat(),
+                        'value': f'{change.old_state.value.upper()} -> {change.new_state.value.upper()}',
+                        'description': f'{change.estop_name}{channel_info}{duration_info}'
+                    })
+            
+            self.logger.info(f"Exported monitoring session report to {filename}")
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting monitoring session to CSV: {e}")
+    
     def generate_report(self) -> str:
         """Generate a comprehensive E Stop monitoring report"""
         # Attempt to read current states first to get latest connection status

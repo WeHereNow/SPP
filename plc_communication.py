@@ -529,6 +529,14 @@ class EnhancedPLCValidator:
         """Generate E Stop monitoring report"""
         return self.estop_monitor.generate_report()
     
+    def generate_estop_monitoring_session_report(self) -> str:
+        """Generate comprehensive E Stop monitoring session report"""
+        return self.estop_monitor.generate_monitoring_session_report()
+    
+    def export_estop_monitoring_session_csv(self, filename: str):
+        """Export E Stop monitoring session report to CSV"""
+        self.estop_monitor.export_monitoring_session_to_csv(filename)
+    
     def add_estop_change_callback(self, callback):
         """Add callback for E Stop state changes"""
         self.estop_monitor.add_state_change_callback(callback)

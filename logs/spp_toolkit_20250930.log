@@ -65,3 +65,17 @@
 2025-09-30 17:55:06,288 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
 2025-09-30 17:55:06,289 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
 2025-09-30 17:55:06,289 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:57:56,003 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 17:57:56,003 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:56,003 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 17:57:57,003 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:58,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:59,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:00,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:01,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:01,005 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:58:02,005 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 17:58:02,005 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Exported monitoring session report to test_monitoring_session_20250930_175802.csv
+2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:58:02,006 - EStopMonitor - INFO - info:107 - Exported monitoring session report to test_csv_format_20250930_175802.csv
