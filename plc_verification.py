@@ -173,10 +173,10 @@ class PLCVerifier:
             # If we still don't have basic info, try to get controller properties
             if not project_info.project_name:
                 try:
-                    # Try to get controller properties directly
-                    controller_info = comm.GetPLCType()
-                    if controller_info.Status == "Success":
-                        project_info.controller_type = str(controller_info.Value or "")
+                    # Try to get controller type from system tags
+                    controller_type_result = comm.Read("Controller.ProcessorType")
+                    if controller_type_result.Status == "Success":
+                        project_info.controller_type = str(controller_type_result.Value or "")
                 except Exception as e:
                     self.logger.warning(f"Could not get controller type: {e}")
             

@@ -101,3 +101,7 @@
 2025-09-30 18:42:16,413 - EStopMonitor - INFO - info:107 - Exported 6 state changes to test_export_changes_with_data_20250930_184216.csv
 2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Exported 6 state changes to test_validator_export_20250930_184216.csv
 2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 19:29:12,878 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 19:29:12,878 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 19:29:40,608 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 19:29:40,608 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix

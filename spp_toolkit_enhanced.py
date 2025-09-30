@@ -521,14 +521,6 @@ class EnhancedApp(tk.Tk):
         self.btn_estop_stop.pack(side=tk.LEFT, padx=6, pady=6)
         self.btn_estop_stop.configure(state=tk.DISABLED)
         
-        self.btn_estop_status = ttk.Button(toolbar, text="Get Status", 
-                                          command=self._on_get_estop_status)
-        self.btn_estop_status.pack(side=tk.LEFT, padx=6, pady=6)
-        
-        self.btn_estop_report = ttk.Button(toolbar, text="Generate Report", 
-                                          command=self._on_generate_estop_report)
-        self.btn_estop_report.pack(side=tk.LEFT, padx=6, pady=6)
-        
         self.btn_estop_export = ttk.Button(toolbar, text="Export Changes CSV", 
                                           command=self._on_export_estop_changes)
         self.btn_estop_export.pack(side=tk.LEFT, padx=6, pady=6)
@@ -1303,109 +1295,6 @@ class EnhancedApp(tk.Tk):
                 self.estop_text.insert(tk.END, f"✗ Error stopping monitoring: {e}\n")
         
         self._run_in_thread(self.btn_estop_stop, stop_monitoring)
-    
-    def _on_get_estop_status(self):
-        """Get current E Stop status"""
-        ip = self.entry_estop_ip.get().strip()
-        
-        if not ip:
-            messagebox.showerror("Error", "Please enter a PLC IP address")
-            return
-        
-        def get_status():
-            try:
-                self.logger.info(f"Getting E Stop status for {ip}")
-                self.estop_text.delete("1.0", tk.END)
-                self.estop_text.insert(tk.END, f"Getting E Stop status for {ip}...\n")
-                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
-                
-                # Create validator and get status
-                validator = EnhancedPLCValidator(ip, self.estop_logger)
-                status = validator.get_estop_status()
-                validator.close()
-                
-                if "error" in status:
-                    self.estop_text.insert(tk.END, f"Error: {status['error']}\n")
-                    return
-                
-                # Display status
-                self.estop_text.insert(tk.END, f"E Stop Status Report - {status['timestamp']}\n")
-                self.estop_text.insert(tk.END, f"Monitoring Active: {'Yes' if status['monitoring_active'] else 'No'}\n")
-                self.estop_text.insert(tk.END, f"Monitor Interval: {status['monitor_interval']}s\n\n")
-                
-                # Check for connection issues
-                has_read_errors = any(estop_data.get('read_error') for estop_data in status['estops'].values())
-                if has_read_errors:
-                    self.estop_text.insert(tk.END, "⚠️  PLC CONNECTION STATUS:\n")
-                    self.estop_text.insert(tk.END, "-" * 40 + "\n")
-                    self.estop_text.insert(tk.END, "❌ PLC Connection Issues Detected\n")
-                    self.estop_text.insert(tk.END, "   E Stop states showing as 'UNKNOWN' due to connection problems.\n")
-                    self.estop_text.insert(tk.END, "   This is expected when:\n")
-                    self.estop_text.insert(tk.END, "   - pylogix library is not installed\n")
-                    self.estop_text.insert(tk.END, "   - PLC is not accessible on the network\n")
-                    self.estop_text.insert(tk.END, "   - PLC IP address is incorrect\n\n")
-                
-                for estop_id, estop_data in status['estops'].items():
-                    self.estop_text.insert(tk.END, f"{estop_data['name']} ({estop_data['location']}):\n")
-                    
-                    # Show state with appropriate indicator
-                    if estop_data.get('read_error'):
-                        self.estop_text.insert(tk.END, f"  Current State: {estop_data['current_state'].upper()} (⚠️  Connection Error)\n")
-                    else:
-                        self.estop_text.insert(tk.END, f"  Current State: {estop_data['current_state'].upper()}\n")
-                    
-                    if estop_data['is_dual_channel']:
-                        channel_a_state = estop_data['channel_a_state'].upper() if estop_data['channel_a_state'] else 'UNKNOWN'
-                        channel_b_state = estop_data['channel_b_state'].upper() if estop_data['channel_b_state'] else 'UNKNOWN'
-                        self.estop_text.insert(tk.END, f"  Channel A: {channel_a_state}\n")
-                        self.estop_text.insert(tk.END, f"  Channel B: {channel_b_state}\n")
-                    
-                    self.estop_text.insert(tk.END, f"  Total Changes: {estop_data['total_changes']}\n")
-                    
-                    if estop_data.get('last_read_time'):
-                        self.estop_text.insert(tk.END, f"  Last Read: {estop_data['last_read_time']}\n")
-                    
-                    if estop_data.get('last_change_time'):
-                        self.estop_text.insert(tk.END, f"  Last Change: {estop_data['last_change_time']}\n")
-                    
-                    if estop_data.get('read_error'):
-                        self.estop_text.insert(tk.END, f"  Read Error: {estop_data['read_error']}\n")
-                    
-                    self.estop_text.insert(tk.END, "\n")
-                
-            except Exception as e:
-                self.logger.error(f"Error getting E Stop status: {e}")
-                self.estop_text.insert(tk.END, f"Error: {e}\n")
-        
-        self._run_in_thread(self.btn_estop_status, get_status)
-    
-    def _on_generate_estop_report(self):
-        """Generate E Stop monitoring report"""
-        ip = self.entry_estop_ip.get().strip()
-        
-        if not ip:
-            messagebox.showerror("Error", "Please enter a PLC IP address")
-            return
-        
-        def generate_report():
-            try:
-                self.logger.info(f"Generating E Stop report for {ip}")
-                self.estop_text.delete("1.0", tk.END)
-                self.estop_text.insert(tk.END, f"Generating E Stop report for {ip}...\n")
-                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
-                
-                # Create validator and generate report
-                validator = EnhancedPLCValidator(ip, self.estop_logger)
-                report = validator.generate_estop_report()
-                validator.close()
-                
-                self.estop_text.insert(tk.END, report)
-                
-            except Exception as e:
-                self.logger.error(f"Error generating E Stop report: {e}")
-                self.estop_text.insert(tk.END, f"Error: {e}\n")
-        
-        self._run_in_thread(self.btn_estop_report, generate_report)
     
     def _on_export_estop_changes(self):
         """Export E Stop changes to CSV file"""
