@@ -141,53 +141,179 @@ class PLCVerifier:
             ]
             
             # Try primary tags first
+            self.logger.info("Attempting to read project information from primary tags...")
             results = comm.Read(project_tags)
+            
+            # Log results for debugging
+            successful_tags = sum(1 for r in results if r.Status == "Success")
+            self.logger.info(f"Primary tags: {successful_tags}/{len(results)} successful")
             
             # If primary tags fail, try alternative tags
             if any(r.Status != "Success" for r in results):
                 self.logger.warning("Primary project tags failed, trying alternative paths...")
                 results = comm.Read(alternative_tags)
+                
+                # Log alternative results
+                successful_alt_tags = sum(1 for r in results if r.Status == "Success")
+                self.logger.info(f"Alternative tags: {successful_alt_tags}/{len(results)} successful")
             
-            # Parse results
-            if results[0].Status == "Success":
-                project_info.project_name = str(results[0].Value or "")
-            if results[1].Status == "Success":
-                project_info.major_revision = int(results[1].Value or 0)
-            if results[2].Status == "Success":
-                project_info.minor_revision = int(results[2].Value or 0)
-            if results[3].Status == "Success":
-                project_info.last_load_timestamp = str(results[3].Value or "")
-            if results[4].Status == "Success":
-                project_info.checksum = str(results[4].Value or "")
-            if results[5].Status == "Success":
-                project_info.signature = str(results[5].Value or "")
-            if results[6].Status == "Success":
-                project_info.controller_name = str(results[6].Value or "")
-            if results[7].Status == "Success":
-                project_info.controller_type = str(results[7].Value or "")
-            if results[8].Status == "Success":
-                project_info.firmware_version = str(results[8].Value or "")
-            if results[9].Status == "Success":
-                project_info.serial_number = str(results[9].Value or "")
+            # Parse results with better error handling
+            try:
+                if results[0].Status == "Success":
+                    project_info.project_name = str(results[0].Value or "")
+                    self.logger.info(f"Project name: '{project_info.project_name}'")
+                else:
+                    self.logger.warning(f"Failed to read project name: {results[0].Status}")
+                
+                if results[1].Status == "Success":
+                    project_info.major_revision = int(results[1].Value or 0)
+                    self.logger.info(f"Major revision: {project_info.major_revision}")
+                else:
+                    self.logger.warning(f"Failed to read major revision: {results[1].Status}")
+                
+                if results[2].Status == "Success":
+                    project_info.minor_revision = int(results[2].Value or 0)
+                    self.logger.info(f"Minor revision: {project_info.minor_revision}")
+                else:
+                    self.logger.warning(f"Failed to read minor revision: {results[2].Status}")
+                
+                if results[3].Status == "Success":
+                    project_info.last_load_timestamp = str(results[3].Value or "")
+                    self.logger.info(f"Last load time: '{project_info.last_load_timestamp}'")
+                else:
+                    self.logger.warning(f"Failed to read last load time: {results[3].Status}")
+                
+                if results[4].Status == "Success":
+                    project_info.checksum = str(results[4].Value or "")
+                    self.logger.info(f"Checksum: '{project_info.checksum}'")
+                else:
+                    self.logger.warning(f"Failed to read checksum: {results[4].Status}")
+                
+                if results[5].Status == "Success":
+                    project_info.signature = str(results[5].Value or "")
+                    self.logger.info(f"Signature: '{project_info.signature}'")
+                else:
+                    self.logger.warning(f"Failed to read signature: {results[5].Status}")
+                
+                if results[6].Status == "Success":
+                    project_info.controller_name = str(results[6].Value or "")
+                    self.logger.info(f"Controller name: '{project_info.controller_name}'")
+                else:
+                    self.logger.warning(f"Failed to read controller name: {results[6].Status}")
+                
+                if results[7].Status == "Success":
+                    project_info.controller_type = str(results[7].Value or "")
+                    self.logger.info(f"Controller type: '{project_info.controller_type}'")
+                else:
+                    self.logger.warning(f"Failed to read controller type: {results[7].Status}")
+                
+                if results[8].Status == "Success":
+                    project_info.firmware_version = str(results[8].Value or "")
+                    self.logger.info(f"Firmware version: '{project_info.firmware_version}'")
+                else:
+                    self.logger.warning(f"Failed to read firmware version: {results[8].Status}")
+                
+                if results[9].Status == "Success":
+                    project_info.serial_number = str(results[9].Value or "")
+                    self.logger.info(f"Serial number: '{project_info.serial_number}'")
+                else:
+                    self.logger.warning(f"Failed to read serial number: {results[9].Status}")
+                    
+            except Exception as e:
+                self.logger.error(f"Error parsing project information results: {e}")
+                # Continue with partial data
             
-            # If we still don't have basic info, try to get controller properties
+            # If we still don't have basic info, try additional fallback tags
             if not project_info.project_name:
-                try:
-                    # Try to get controller type from system tags
-                    controller_type_result = comm.Read("Controller.ProcessorType")
-                    if controller_type_result.Status == "Success":
-                        project_info.controller_type = str(controller_type_result.Value or "")
-                except Exception as e:
-                    self.logger.warning(f"Could not get controller type: {e}")
+                self.logger.info("Trying additional fallback tags for project information...")
+                fallback_tags = [
+                    "Controller.ProjectName",
+                    "Controller.Project",
+                    "Program:MainProgram.ProjectName",
+                    "Program:MainProgram.Project"
+                ]
+                
+                for tag in fallback_tags:
+                    try:
+                        result = comm.Read(tag)
+                        if result.Status == "Success" and result.Value:
+                            project_info.project_name = str(result.Value)
+                            self.logger.info(f"Found project name from {tag}: '{project_info.project_name}'")
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"Failed to read {tag}: {e}")
             
-            # Try to get controller name from system tags
+            # Try additional controller type tags
+            if not project_info.controller_type:
+                self.logger.info("Trying additional fallback tags for controller type...")
+                controller_type_tags = [
+                    "Controller.ProcessorType",
+                    "Controller.Type",
+                    "Controller.Model",
+                    "Program:MainProgram.ControllerType"
+                ]
+                
+                for tag in controller_type_tags:
+                    try:
+                        result = comm.Read(tag)
+                        if result.Status == "Success" and result.Value:
+                            project_info.controller_type = str(result.Value)
+                            self.logger.info(f"Found controller type from {tag}: '{project_info.controller_type}'")
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"Failed to read {tag}: {e}")
+            
+            # Try additional controller name tags
             if not project_info.controller_name:
-                try:
-                    name_result = comm.Read("Controller.Name")
-                    if name_result.Status == "Success":
-                        project_info.controller_name = str(name_result.Value or "")
-                except Exception:
-                    pass
+                self.logger.info("Trying additional fallback tags for controller name...")
+                controller_name_tags = [
+                    "Controller.Name",
+                    "Controller.HostName",
+                    "Program:MainProgram.ControllerName"
+                ]
+                
+                for tag in controller_name_tags:
+                    try:
+                        result = comm.Read(tag)
+                        if result.Status == "Success" and result.Value:
+                            project_info.controller_name = str(result.Value)
+                            self.logger.info(f"Found controller name from {tag}: '{project_info.controller_name}'")
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"Failed to read {tag}: {e}")
+            
+            # Try additional version tags
+            if not project_info.major_revision and not project_info.minor_revision:
+                self.logger.info("Trying additional fallback tags for version information...")
+                version_tags = [
+                    "Controller.MajorRevision",
+                    "Controller.MinorRevision",
+                    "Controller.Version",
+                    "Program:MainProgram.MajorRevision",
+                    "Program:MainProgram.MinorRevision"
+                ]
+                
+                for tag in version_tags:
+                    try:
+                        result = comm.Read(tag)
+                        if result.Status == "Success" and result.Value:
+                            if "Major" in tag:
+                                project_info.major_revision = int(result.Value)
+                                self.logger.info(f"Found major revision from {tag}: {project_info.major_revision}")
+                            elif "Minor" in tag:
+                                project_info.minor_revision = int(result.Value)
+                                self.logger.info(f"Found minor revision from {tag}: {project_info.minor_revision}")
+                    except Exception as e:
+                        self.logger.debug(f"Failed to read {tag}: {e}")
+            
+            # Log final summary
+            self.logger.info("Final project information summary:")
+            self.logger.info(f"  Project Name: '{project_info.project_name}'")
+            self.logger.info(f"  Version: {project_info.major_revision}.{project_info.minor_revision}")
+            self.logger.info(f"  Controller Name: '{project_info.controller_name}'")
+            self.logger.info(f"  Controller Type: '{project_info.controller_type}'")
+            self.logger.info(f"  Firmware Version: '{project_info.firmware_version}'")
+            self.logger.info(f"  Serial Number: '{project_info.serial_number}'")
         
         return project_info
     
