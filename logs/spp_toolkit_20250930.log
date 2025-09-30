@@ -1,3 +1,18 @@
 2025-09-30 16:05:40,201 - test - INFO - info:107 - Logger test successful
 2025-09-30 16:06:27,264 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
 2025-09-30 16:06:27,264 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:18:52,391 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:18:52,391 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:30,610 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 16:19:30,610 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:30,610 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 16:19:31,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:32,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:33,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:34,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:35,612 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:35,612 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:36,612 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_changes_20250930_161936.json
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
