@@ -231,9 +231,11 @@ class EStopMonitor:
                 
         except Exception as e:
             self.logger.error(f"Error reading E Stop states: {e}")
-            # Mark all as having read errors
+            # Mark all as having read errors and update last read time
+            current_time = datetime.now()
             for estop_status in self.current_states.values():
                 estop_status.read_error = str(e)
+                estop_status.last_read_time = current_time
         
         return self.current_states.copy()
     
@@ -542,19 +544,42 @@ class EStopMonitor:
         report_lines.append(f"Total State Changes Recorded: {len(self.state_changes)}")
         report_lines.append("")
         
+        # Connection status
+        has_read_errors = any(status.read_error for status in self.current_states.values())
+        if has_read_errors:
+            report_lines.append("⚠️  PLC CONNECTION STATUS:")
+            report_lines.append("-" * 40)
+            report_lines.append("❌ PLC Connection Issues Detected")
+            report_lines.append("   E Stop states showing as 'UNKNOWN' due to connection problems.")
+            report_lines.append("   This is expected when:")
+            report_lines.append("   - pylogix library is not installed")
+            report_lines.append("   - PLC is not accessible on the network")
+            report_lines.append("   - PLC IP address is incorrect")
+            report_lines.append("")
+        
         # Current states
         report_lines.append("CURRENT E STOP STATES:")
         report_lines.append("-" * 40)
         for estop_id, status in self.current_states.items():
             estop_info = self.estop_definitions[estop_id]
             report_lines.append(f"{status.name} ({estop_info.location}):")
-            report_lines.append(f"  Current State: {status.state.value.upper()}")
+            
+            # Show state with appropriate indicator
+            if status.read_error:
+                report_lines.append(f"  Current State: {status.state.value.upper()} (⚠️  Connection Error)")
+            else:
+                report_lines.append(f"  Current State: {status.state.value.upper()}")
             
             if estop_info.is_dual_channel:
-                report_lines.append(f"  Channel A: {status.channel_a_state.value.upper() if status.channel_a_state else 'UNKNOWN'}")
-                report_lines.append(f"  Channel B: {status.channel_b_state.value.upper() if status.channel_b_state else 'UNKNOWN'}")
+                channel_a_state = status.channel_a_state.value.upper() if status.channel_a_state else 'UNKNOWN'
+                channel_b_state = status.channel_b_state.value.upper() if status.channel_b_state else 'UNKNOWN'
+                report_lines.append(f"  Channel A: {channel_a_state}")
+                report_lines.append(f"  Channel B: {channel_b_state}")
             
             report_lines.append(f"  Total Changes: {status.total_changes}")
+            
+            if status.last_read_time:
+                report_lines.append(f"  Last Read: {status.last_read_time.strftime('%Y-%m-%d %H:%M:%S')}")
             
             if status.last_change:
                 report_lines.append(f"  Last Change: {status.last_change.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
