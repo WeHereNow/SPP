@@ -346,6 +346,9 @@ class EStopMonitor:
     
     def get_state_summary(self) -> Dict[str, Any]:
         """Get a summary of all E Stop states"""
+        # Attempt to read current states first
+        self.read_current_states()
+        
         summary = {
             "timestamp": datetime.now().isoformat(),
             "monitoring_active": self.monitoring_active,
