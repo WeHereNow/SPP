@@ -1,0 +1,3 @@
+2025-09-30 16:05:40,201 - test - INFO - info:107 - Logger test successful
+2025-09-30 16:06:27,264 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:06:27,264 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring

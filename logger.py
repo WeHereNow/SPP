@@ -7,17 +7,35 @@ import queue
 import threading
 from datetime import datetime
 from typing import Optional, TextIO, Dict
-import tkinter as tk
-from tkinter import ttk
+
+# Optional tkinter import for GUI functionality
+try:
+    import tkinter as tk
+    from tkinter import ttk
+    TKINTER_AVAILABLE = True
+except ImportError:
+    TKINTER_AVAILABLE = False
+    # Create dummy classes for when tkinter is not available
+    class tk:
+        class Text:
+            pass
+        class StringVar:
+            pass
+    class ttk:
+        pass
 
 class GuiLogHandler(logging.Handler):
     """Custom logging handler that sends messages to a GUI text widget"""
     
-    def __init__(self, text_widget: tk.Text):
+    def __init__(self, text_widget=None):
         super().__init__()
-        self.text_widget = text_widget
-        self.q: queue.Queue[str] = queue.Queue()
-        self._poll_queue()
+        if TKINTER_AVAILABLE and text_widget is not None:
+            self.text_widget = text_widget
+            self.q: queue.Queue[str] = queue.Queue()
+            self._poll_queue()
+        else:
+            self.text_widget = None
+            self.q = None
         
     def _poll_queue(self) -> None:
         """Periodically move messages from the queue into the Text widget"""
@@ -34,14 +52,15 @@ class GuiLogHandler(logging.Handler):
         """Emit a log record to the GUI"""
         try:
             msg = self.format(record) + '\n'
-            self.q.put(msg)
+            if self.q is not None:
+                self.q.put(msg)
         except Exception:
             self.handleError(record)
 
 class EnhancedLogger:
     """Enhanced logger with multiple outputs and formatting"""
     
-    def __init__(self, name: str, gui_widget: Optional[tk.Text] = None):
+    def __init__(self, name: str, gui_widget=None):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
         
@@ -131,7 +150,7 @@ class ProgressLogger:
 # Global logger instances
 loggers: Dict[str, EnhancedLogger] = {}
 
-def get_logger(name: str, gui_widget: Optional[tk.Text] = None) -> EnhancedLogger:
+def get_logger(name: str, gui_widget=None) -> EnhancedLogger:
     """Get or create a logger instance"""
     if name not in loggers:
         loggers[name] = EnhancedLogger(name, gui_widget)
