@@ -112,8 +112,11 @@ class PLCVerifier:
             comm.IPAddress = ip_address
             comm.SocketTimeout = config.plc.read_timeout
             
-            # List of tags to read for project information (System tags with @ prefix for Compact GuardLogix)
+            # List of tags to read for project information (ESP_Comm_Setup scope for Compact GuardLogix)
             project_tags = [
+                "Scope:ESP_Comm_Setup.CONST_SW_version",
+                "ESP_Comm_Setup.CONST_SW_version",
+                "Program:ESP_Comm_Setup.CONST_SW_version",
                 "@ProjectName",
                 "@MajorRevision",
                 "@MinorRevision", 
@@ -128,6 +131,9 @@ class PLCVerifier:
             
             # Alternative tag paths for traditional controllers
             alternative_tags = [
+                "Scope:ESP_Comm_Setup.CONST_SW_version",
+                "ESP_Comm_Setup.CONST_SW_version",
+                "Program:ESP_Comm_Setup.CONST_SW_version",
                 "Controller.ProjectName",
                 "Controller.MajorRevision",
                 "Controller.MinorRevision", 
@@ -154,13 +160,13 @@ class PLCVerifier:
                 "Program:MainProgram.SerialNumber"
             ]
             
-            # Try primary tags first (System tags with @ prefix for Compact GuardLogix)
-            self.logger.info("Attempting to read project information from system tags (@ prefix)...")
+            # Try primary tags first (ESP_Comm_Setup scope for Compact GuardLogix)
+            self.logger.info("Attempting to read project information from ESP_Comm_Setup scope and system tags...")
             results = comm.Read(project_tags)
             
             # Log results for debugging
             successful_tags = sum(1 for r in results if r.Status == "Success")
-            self.logger.info(f"System tags (@ prefix): {successful_tags}/{len(results)} successful")
+            self.logger.info(f"ESP_Comm_Setup and system tags: {successful_tags}/{len(results)} successful")
             
             # If system tags fail, try Controller.* tags
             if any(r.Status != "Success" for r in results):
@@ -182,65 +188,92 @@ class PLCVerifier:
             
             # Parse results with better error handling
             try:
-                if results[0].Status == "Success":
-                    project_info.project_name = str(results[0].Value or "")
-                    self.logger.info(f"Project name: '{project_info.project_name}'")
-                else:
-                    self.logger.warning(f"Failed to read project name: {results[0].Status}")
+                # Check if we got ESP_Comm_Setup.CONST_SW_version (first 3 tags are ESP_Comm_Setup variants)
+                esp_comm_version = None
+                for i in range(3):  # Check first 3 tags (ESP_Comm_Setup variants)
+                    if results[i].Status == "Success" and results[i].Value:
+                        esp_comm_version = str(results[i].Value)
+                        self.logger.info(f"Found ESP_Comm_Setup.CONST_SW_version: '{esp_comm_version}'")
+                        break
                 
-                if results[1].Status == "Success":
-                    project_info.major_revision = int(results[1].Value or 0)
-                    self.logger.info(f"Major revision: {project_info.major_revision}")
-                else:
-                    self.logger.warning(f"Failed to read major revision: {results[1].Status}")
+                # Parse ESP_Comm_Setup.CONST_SW_version if found
+                if esp_comm_version:
+                    # Try to extract project name and version from the version string
+                    # Format might be like "USP_V35_2025_09_16_OldSafety.ACD" or similar
+                    project_info.project_name = esp_comm_version
+                    
+                    # Try to extract version numbers from the string
+                    import re
+                    version_match = re.search(r'V(\d+)\.(\d+)', esp_comm_version)
+                    if version_match:
+                        project_info.major_revision = int(version_match.group(1))
+                        project_info.minor_revision = int(version_match.group(2))
+                        self.logger.info(f"Extracted version from ESP_Comm_Setup: {project_info.major_revision}.{project_info.minor_revision}")
+                    else:
+                        self.logger.info(f"Could not extract version numbers from ESP_Comm_Setup version: '{esp_comm_version}'")
                 
-                if results[2].Status == "Success":
-                    project_info.minor_revision = int(results[2].Value or 0)
-                    self.logger.info(f"Minor revision: {project_info.minor_revision}")
-                else:
-                    self.logger.warning(f"Failed to read minor revision: {results[2].Status}")
+                # If ESP_Comm_Setup didn't provide project name, try other tags
+                if not project_info.project_name and results[3].Status == "Success":
+                    project_info.project_name = str(results[3].Value or "")
+                    self.logger.info(f"Project name from system tag: '{project_info.project_name}'")
+                elif not project_info.project_name:
+                    self.logger.warning(f"Failed to read project name: {results[3].Status}")
                 
-                if results[3].Status == "Success":
-                    project_info.last_load_timestamp = str(results[3].Value or "")
+                # If ESP_Comm_Setup didn't provide version, try other tags
+                if not project_info.major_revision and results[4].Status == "Success":
+                    project_info.major_revision = int(results[4].Value or 0)
+                    self.logger.info(f"Major revision from system tag: {project_info.major_revision}")
+                elif not project_info.major_revision:
+                    self.logger.warning(f"Failed to read major revision: {results[4].Status}")
+                
+                if not project_info.minor_revision and results[5].Status == "Success":
+                    project_info.minor_revision = int(results[5].Value or 0)
+                    self.logger.info(f"Minor revision from system tag: {project_info.minor_revision}")
+                elif not project_info.minor_revision:
+                    self.logger.warning(f"Failed to read minor revision: {results[5].Status}")
+                
+                # Parse remaining tags (indices shifted due to ESP_Comm_Setup tags)
+                if results[6].Status == "Success":
+                    project_info.last_load_timestamp = str(results[6].Value or "")
                     self.logger.info(f"Last load time: '{project_info.last_load_timestamp}'")
                 else:
-                    self.logger.warning(f"Failed to read last load time: {results[3].Status}")
-                
-                if results[4].Status == "Success":
-                    project_info.checksum = str(results[4].Value or "")
-                    self.logger.info(f"Checksum: '{project_info.checksum}'")
-                else:
-                    self.logger.warning(f"Failed to read checksum: {results[4].Status}")
-                
-                if results[5].Status == "Success":
-                    project_info.signature = str(results[5].Value or "")
-                    self.logger.info(f"Signature: '{project_info.signature}'")
-                else:
-                    self.logger.warning(f"Failed to read signature: {results[5].Status}")
-                
-                if results[6].Status == "Success":
-                    project_info.controller_name = str(results[6].Value or "")
-                    self.logger.info(f"Controller name: '{project_info.controller_name}'")
-                else:
-                    self.logger.warning(f"Failed to read controller name: {results[6].Status}")
+                    self.logger.warning(f"Failed to read last load time: {results[6].Status}")
                 
                 if results[7].Status == "Success":
-                    project_info.controller_type = str(results[7].Value or "")
-                    self.logger.info(f"Controller type: '{project_info.controller_type}'")
+                    project_info.checksum = str(results[7].Value or "")
+                    self.logger.info(f"Checksum: '{project_info.checksum}'")
                 else:
-                    self.logger.warning(f"Failed to read controller type: {results[7].Status}")
+                    self.logger.warning(f"Failed to read checksum: {results[7].Status}")
                 
                 if results[8].Status == "Success":
-                    project_info.firmware_version = str(results[8].Value or "")
-                    self.logger.info(f"Firmware version: '{project_info.firmware_version}'")
+                    project_info.signature = str(results[8].Value or "")
+                    self.logger.info(f"Signature: '{project_info.signature}'")
                 else:
-                    self.logger.warning(f"Failed to read firmware version: {results[8].Status}")
+                    self.logger.warning(f"Failed to read signature: {results[8].Status}")
                 
                 if results[9].Status == "Success":
-                    project_info.serial_number = str(results[9].Value or "")
+                    project_info.controller_name = str(results[9].Value or "")
+                    self.logger.info(f"Controller name: '{project_info.controller_name}'")
+                else:
+                    self.logger.warning(f"Failed to read controller name: {results[9].Status}")
+                
+                if results[10].Status == "Success":
+                    project_info.controller_type = str(results[10].Value or "")
+                    self.logger.info(f"Controller type: '{project_info.controller_type}'")
+                else:
+                    self.logger.warning(f"Failed to read controller type: {results[10].Status}")
+                
+                if results[11].Status == "Success":
+                    project_info.firmware_version = str(results[11].Value or "")
+                    self.logger.info(f"Firmware version: '{project_info.firmware_version}'")
+                else:
+                    self.logger.warning(f"Failed to read firmware version: {results[11].Status}")
+                
+                if results[12].Status == "Success":
+                    project_info.serial_number = str(results[12].Value or "")
                     self.logger.info(f"Serial number: '{project_info.serial_number}'")
                 else:
-                    self.logger.warning(f"Failed to read serial number: {results[9].Status}")
+                    self.logger.warning(f"Failed to read serial number: {results[12].Status}")
                     
             except Exception as e:
                 self.logger.error(f"Error parsing project information results: {e}")
@@ -250,6 +283,9 @@ class PLCVerifier:
             if not project_info.project_name:
                 self.logger.info("Trying additional fallback tags for project information...")
                 fallback_tags = [
+                    "Scope:ESP_Comm_Setup.CONST_SW_version",
+                    "ESP_Comm_Setup.CONST_SW_version",
+                    "Program:ESP_Comm_Setup.CONST_SW_version",
                     "@ProjectName",
                     "@Project",
                     "@ProjectTitle",
@@ -265,9 +301,26 @@ class PLCVerifier:
                     try:
                         result = comm.Read(tag)
                         if result.Status == "Success" and result.Value:
-                            project_info.project_name = str(result.Value)
-                            self.logger.info(f"Found project name from {tag}: '{project_info.project_name}'")
-                            break
+                            value = str(result.Value)
+                            
+                            # If this is an ESP_Comm_Setup.CONST_SW_version tag, parse it
+                            if "ESP_Comm_Setup" in tag and "CONST_SW_version" in tag:
+                                project_info.project_name = value
+                                self.logger.info(f"Found ESP_Comm_Setup.CONST_SW_version from {tag}: '{value}'")
+                                
+                                # Try to extract version numbers from the string
+                                import re
+                                version_match = re.search(r'V(\d+)\.(\d+)', value)
+                                if version_match:
+                                    project_info.major_revision = int(version_match.group(1))
+                                    project_info.minor_revision = int(version_match.group(2))
+                                    self.logger.info(f"Extracted version from ESP_Comm_Setup: {project_info.major_revision}.{project_info.minor_revision}")
+                                break
+                            else:
+                                # Regular project name tag
+                                project_info.project_name = value
+                                self.logger.info(f"Found project name from {tag}: '{project_info.project_name}'")
+                                break
                     except Exception as e:
                         self.logger.debug(f"Failed to read {tag}: {e}")
             
