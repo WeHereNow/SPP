@@ -87,6 +87,36 @@ PROGRAM1_DEVICES: Dict[str, str] = {        # Dict of IP -> Device description
 
 # ----------------------------- Program 2 tag maps (IO Validation) -------------------
 
+# Individual G Par bit tags to read directly
+G_PAR_BIT_TAGS = [
+    'g_Par.0', 'g_Par.1', 'g_Par.2', 'g_Par.3', 'g_Par.4', 'g_Par.5', 'g_Par.6', 'g_Par.7',
+    'g_Par.9', 'g_Par.11', 'g_Par.12', 'g_Par.13', 'g_Par.14', 'g_Par.15', 'g_Par.16', 'g_Par.17',
+    'g_Par.18', 'g_Par.19', 'g_Par.20', 'g_Par.21', 'g_Par.24', 'g_Par.25', 'g_Par.26', 'g_Par.27',
+    'g_Par.28', 'g_Par.29', 'g_Par.30', 'g_Par.31'
+]
+
+G_PAR1_BIT_TAGS = [
+    'g_Par1.0', 'g_Par1.1', 'g_Par1.2', 'g_Par1.3', 'g_Par1.4', 'g_Par1.5', 'g_Par1.6'
+]
+
+G_PARNEW_BIT_TAGS = [
+    'g_ParNew.0', 'g_ParNew.1', 'g_ParNew.2', 'g_ParNew.3', 'g_ParNew.4', 'g_ParNew.5', 'g_ParNew.6', 'g_ParNew.7',
+    'g_ParNew.8', 'g_ParNew.10', 'g_ParNew.11', 'g_ParNew.12', 'g_ParNew.13', 'g_ParNew.14', 'g_ParNew.15',
+    'g_ParNew.16', 'g_ParNew.17', 'g_ParNew.20', 'g_ParNew.21', 'g_ParNew.31'
+]
+
+G_PARTEMP_BIT_TAGS = [
+    'g_parTemp.1', 'g_parTemp.2', 'g_parTemp.3', 'g_parTemp.5', 'g_parTemp.6', 'g_parTemp.7'
+]
+
+# Additional G Par bits
+G_PAR_ADDITIONAL_BITS = [
+    'g_Par.17', 'g_Par.16', 'g_Par.22', 'g_Par.23', 'g_Par.13', 'g_Par.14', 'g_Par.15'
+]
+
+# Combined list of all G Par bit tags
+ALL_G_PAR_BIT_TAGS = G_PAR_BIT_TAGS + G_PAR1_BIT_TAGS + G_PARNEW_BIT_TAGS + G_PARTEMP_BIT_TAGS + G_PAR_ADDITIONAL_BITS
+
 G_PAR_DESCRIPTIONS = {      # Bit descriptions for g_Par tag (0..31)
     0: 'Pneumatic Roll Lift', 1: 'Webber Installed', 2: 'Disable Downstream Conveyor Interlock',
     3: 'Printer Forward Sensor Disabled', 4: 'Not Used', 5: 'Disable OEE Starved Time Reporting',
@@ -325,23 +355,46 @@ def run_program2_io_validation(target_ip: str) -> None:
     with PLC() as comm:                                                           # Open pylogix PLC session
         comm.IPAddress = target_ip                                                # Set target IP
 
-        tag_map = {                                                               # Tag -> bit-description map
-            'g_Par': G_PAR_DESCRIPTIONS,
-            'g_Par1': G_PAR1_DESCRIPTIONS,
-            'g_ParNew': G_PARNEW_DESCRIPTIONS,
-            'g_parTemp': G_PARTEMP_DESCRIPTIONS,
-        }
-
-        all_gpar_on: Dict[str, List[str]] = {}                                    # Results per tag
-
-        for tag, descs in tag_map.items():                                        # Loop tags
-            result = comm.Read(tag)                                               # Read tag value
-            if result.Status != 'Success':                                        # Check read status
+        # Read individual G Par bit tags directly
+        all_gpar_on: Dict[str, List[str]] = {}                                    # Results per tag group
+        
+        # Read all G Par bit tags at once
+        print("Reading G Par bit tags...")
+        gpar_results = comm.Read(ALL_G_PAR_BIT_TAGS)                              # Read all bit tags
+        
+        # Organize results by tag group
+        gpar_bits_on = []
+        gpar1_bits_on = []
+        gparnew_bits_on = []
+        gpartemp_bits_on = []
+        
+        for i, (tag, result) in enumerate(zip(ALL_G_PAR_BIT_TAGS, gpar_results)):
+            if result.Status == 'Success' and result.Value:
+                # Extract bit number and description
+                if tag.startswith('g_Par.') and not tag.startswith('g_Par1') and not tag.startswith('g_ParNew'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PAR_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpar_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_Par1.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PAR1_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpar1_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_ParNew.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PARNEW_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gparnew_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_parTemp.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PARTEMP_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpartemp_bits_on.append(f"Bit {bit_num}: {desc}")
+            elif result.Status != 'Success':
                 print(f"Failed to read {tag}: {result.Status}")
-                continue
-            value = result.Value                                                  # Tag integer value
-            bits = [f"Bit {b}: {d}" for b, d in descs.items() if value & (1 << b)]# On bits only
-            all_gpar_on[tag] = bits                                               # Store list
+        
+        # Store results
+        all_gpar_on['g_Par'] = gpar_bits_on
+        all_gpar_on['g_Par1'] = gpar1_bits_on
+        all_gpar_on['g_ParNew'] = gparnew_bits_on
+        all_gpar_on['g_parTemp'] = gpartemp_bits_on
 
         safety_results = comm.Read(SAFETY_TAGS)                                   # Read safety tags
         interlock_result = comm.Read(INTERLOCK_TAG)                               # Read interlock tag

@@ -112,22 +112,8 @@ class PLCVerifier:
             comm.IPAddress = ip_address
             comm.SocketTimeout = config.plc.read_timeout
             
-            # List of tags to read for project information
+            # List of tags to read for project information (Compact GuardLogix specific)
             project_tags = [
-                "Program:MainProgram.ProjectName",
-                "Program:MainProgram.MajorRevision", 
-                "Program:MainProgram.MinorRevision",
-                "Program:MainProgram.LastLoadTime",
-                "Program:MainProgram.Checksum",
-                "Program:MainProgram.Signature",
-                "Program:MainProgram.ControllerName",
-                "Program:MainProgram.ControllerType",
-                "Program:MainProgram.FirmwareVersion",
-                "Program:MainProgram.SerialNumber"
-            ]
-            
-            # Alternative tag paths if the above don't exist
-            alternative_tags = [
                 "Controller.ProjectName",
                 "Controller.MajorRevision",
                 "Controller.MinorRevision", 
@@ -140,17 +126,54 @@ class PLCVerifier:
                 "Controller.SerialNumber"
             ]
             
-            # Try primary tags first
-            self.logger.info("Attempting to read project information from primary tags...")
+            # Alternative tag paths for older controllers
+            alternative_tags = [
+                "Program:MainProgram.ProjectName",
+                "Program:MainProgram.MajorRevision", 
+                "Program:MainProgram.MinorRevision",
+                "Program:MainProgram.LastLoadTime",
+                "Program:MainProgram.Checksum",
+                "Program:MainProgram.Signature",
+                "Program:MainProgram.ControllerName",
+                "Program:MainProgram.ControllerType",
+                "Program:MainProgram.FirmwareVersion",
+                "Program:MainProgram.SerialNumber"
+            ]
+            
+            # Compact GuardLogix specific tags
+            compact_guardlogix_tags = [
+                "Controller.ProjectName",
+                "Controller.MajorRevision",
+                "Controller.MinorRevision",
+                "Controller.LastLoadTime",
+                "Controller.Checksum",
+                "Controller.Signature", 
+                "Controller.Name",
+                "Controller.ProcessorType",
+                "Controller.FirmwareVersion",
+                "Controller.SerialNumber"
+            ]
+            
+            # Try primary tags first (Controller.* tags for Compact GuardLogix)
+            self.logger.info("Attempting to read project information from primary tags (Controller.*)...")
             results = comm.Read(project_tags)
             
             # Log results for debugging
             successful_tags = sum(1 for r in results if r.Status == "Success")
             self.logger.info(f"Primary tags: {successful_tags}/{len(results)} successful")
             
-            # If primary tags fail, try alternative tags
+            # If primary tags fail, try Compact GuardLogix specific tags
             if any(r.Status != "Success" for r in results):
-                self.logger.warning("Primary project tags failed, trying alternative paths...")
+                self.logger.warning("Primary project tags failed, trying Compact GuardLogix specific tags...")
+                results = comm.Read(compact_guardlogix_tags)
+                
+                # Log Compact GuardLogix results
+                successful_compact_tags = sum(1 for r in results if r.Status == "Success")
+                self.logger.info(f"Compact GuardLogix tags: {successful_compact_tags}/{len(results)} successful")
+            
+            # If Compact GuardLogix tags also fail, try alternative tags (Program:MainProgram.*)
+            if any(r.Status != "Success" for r in results):
+                self.logger.warning("Compact GuardLogix tags failed, trying alternative paths (Program:MainProgram.*)...")
                 results = comm.Read(alternative_tags)
                 
                 # Log alternative results
@@ -229,8 +252,10 @@ class PLCVerifier:
                 fallback_tags = [
                     "Controller.ProjectName",
                     "Controller.Project",
+                    "Controller.ProjectTitle",
                     "Program:MainProgram.ProjectName",
-                    "Program:MainProgram.Project"
+                    "Program:MainProgram.Project",
+                    "Program:MainProgram.ProjectTitle"
                 ]
                 
                 for tag in fallback_tags:

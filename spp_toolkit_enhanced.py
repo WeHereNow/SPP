@@ -525,14 +525,6 @@ class EnhancedApp(tk.Tk):
                                           command=self._on_export_estop_changes)
         self.btn_estop_export.pack(side=tk.LEFT, padx=6, pady=6)
         
-        self.btn_estop_session_report = ttk.Button(toolbar, text="Session Report", 
-                                                  command=self._on_generate_estop_session_report)
-        self.btn_estop_session_report.pack(side=tk.LEFT, padx=6, pady=6)
-        
-        self.btn_estop_session_export = ttk.Button(toolbar, text="Export Session CSV", 
-                                                  command=self._on_export_estop_session_csv)
-        self.btn_estop_session_export.pack(side=tk.LEFT, padx=6, pady=6)
-        
         # Status indicator
         self.estop_status_var = tk.StringVar(value="Not monitoring")
         ttk.Label(toolbar, textvariable=self.estop_status_var, 
@@ -1314,63 +1306,6 @@ class EnhancedApp(tk.Tk):
                 messagebox.showinfo("Export Complete", f"E Stop changes exported to CSV:\n{filename}")
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export E Stop changes:\n{e}")
-    
-    def _on_generate_estop_session_report(self):
-        """Generate E Stop monitoring session report"""
-        ip = self.entry_estop_ip.get().strip()
-        
-        if not ip:
-            messagebox.showerror("Error", "Please enter a PLC IP address")
-            return
-        
-        def generate_session_report():
-            try:
-                self.logger.info(f"Generating E Stop monitoring session report for {ip}")
-                self.estop_text.delete("1.0", tk.END)
-                self.estop_text.insert(tk.END, f"Generating E Stop monitoring session report for {ip}...\n")
-                self.estop_text.insert(tk.END, "=" * 60 + "\n\n")
-                
-                # Create validator and generate session report
-                validator = EnhancedPLCValidator(ip, self.estop_logger)
-                report = validator.generate_estop_monitoring_session_report()
-                validator.close()
-                
-                self.estop_text.insert(tk.END, report)
-                
-            except Exception as e:
-                self.logger.error(f"Error generating E Stop session report: {e}")
-                self.estop_text.insert(tk.END, f"Error: {e}\n")
-        
-        self._run_in_thread(self.btn_estop_session_report, generate_session_report)
-    
-    def _on_export_estop_session_csv(self):
-        """Export E Stop monitoring session report to CSV"""
-        ip = self.entry_estop_ip.get().strip()
-        
-        if not ip:
-            messagebox.showerror("Error", "Please enter a PLC IP address")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            title="Save E Stop Monitoring Session Report"
-        )
-        
-        if filename:
-            try:
-                self.logger.info(f"Exporting E Stop monitoring session report to {filename}")
-                
-                # Create validator and export session report
-                validator = EnhancedPLCValidator(ip, self.estop_logger)
-                validator.export_estop_monitoring_session_csv(filename)
-                validator.close()
-                
-                messagebox.showinfo("Export Complete", f"E Stop monitoring session report exported to:\n{filename}")
-                
-            except Exception as e:
-                self.logger.error(f"Error exporting E Stop session report: {e}")
-                messagebox.showerror("Export Error", f"Failed to export E Stop session report:\n{e}")
     
     def _on_export_plc_report(self):
         """Export PLC report to file"""
