@@ -1,3 +1,29 @@
 2025-10-02 16:41:49,321 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
 2025-10-02 16:41:49,321 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
 2025-10-02 16:41:49,322 - PLCVerifier - INFO - info:107 - Results exported to CSV: /tmp/tmpeh6c7pev.csv
+2025-10-02 18:45:52,640 - PLCValidator - INFO - info:107 - Generating comprehensive PLC status report
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading tag g_Par: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - WARNING - warning:110 - Failed to read g_Par: Error
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading tag g_Par1: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - WARNING - warning:110 - Failed to read g_Par1: Error
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading tag g_ParNew: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - WARNING - warning:110 - Failed to read g_ParNew: Error
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading tag g_parTemp: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - WARNING - warning:110 - Failed to read g_parTemp: Error
+2025-10-02 18:45:52,640 - PLCValidator - INFO - info:107 - Reading 9 safety tags...
+2025-10-02 18:45:52,640 - PLCValidator - WARNING - warning:110 - Multiple tag read failed: pylogix is not installed. Please run: pip install pylogix. Falling back to individual reads.
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SafetyIO.In.ESTOP_Relay1Feedback: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelA: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineBackLeftESTOP.ChannelB: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelA: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineBackRightESTOP.ChannelB: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelA: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MachineFrontESTOP.ChannelB: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,640 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelA: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,641 - PLCValidator - ERROR - error:113 - Error reading individual tag Program:SafetyProgram.SDIN_MainEnclosureESTOP.ChannelB: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,641 - PLCValidator - ERROR - error:113 - Error reading tag IO.PLC.In.DownstreamConveyorEnabled: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,641 - PLCValidator - INFO - info:107 - Reading 3 connectivity tags...
+2025-10-02 18:45:52,641 - PLCValidator - WARNING - warning:110 - Multiple tag read failed: pylogix is not installed. Please run: pip install pylogix. Falling back to individual reads.
+2025-10-02 18:45:52,641 - PLCValidator - ERROR - error:113 - Error reading individual tag H1_PACK_WMS_Connected: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,641 - PLCValidator - ERROR - error:113 - Error reading individual tag H2_SLAM1_WMS_Connected: pylogix is not installed. Please run: pip install pylogix
+2025-10-02 18:45:52,641 - PLCValidator - ERROR - error:113 - Error reading individual tag NTP_Connected: pylogix is not installed. Please run: pip install pylogix
