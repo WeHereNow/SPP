@@ -10,6 +10,7 @@ from contextlib import contextmanager
 try:
     from config import config
     from logger import get_logger, ProgressLogger
+    from estop_monitor import EStopMonitor, EStopStateChange
 except ImportError:
     # Fallback for when modules aren't available
     class MockConfig:
@@ -60,6 +61,36 @@ except ImportError:
         
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+    
+    # Mock classes for E Stop monitoring
+    class EStopStateChange:
+        def __init__(self, timestamp, estop_name, old_state, new_state, channel=None, duration_seconds=None):
+            self.timestamp = timestamp
+            self.estop_name = estop_name
+            self.old_state = old_state
+            self.new_state = new_state
+            self.channel = channel
+            self.duration_seconds = duration_seconds
+    
+    class EStopMonitor:
+        def __init__(self, plc_connection_manager, logger=None):
+            self.logger = logger or get_logger("EStopMonitor")
+            self.monitoring_active = False
+        
+        def start_monitoring(self, interval=None):
+            self.logger.info("E Stop monitoring not available - enhanced modules not loaded")
+        
+        def stop_monitoring(self):
+            pass
+        
+        def read_current_states(self):
+            return {}
+        
+        def get_state_summary(self):
+            return {"error": "E Stop monitoring not available"}
+        
+        def generate_report(self):
+            return "E Stop monitoring not available - enhanced modules not loaded"
 
 try:
     from pylogix import PLC
@@ -213,6 +244,9 @@ class EnhancedPLCValidator:
         self.connection_manager = PLCConnectionManager(ip_address)
         self._tag_cache: Dict[str, TagValue] = {}
         self._cache_timeout = 5.0  # 5 seconds
+        
+        # Initialize E Stop monitor
+        self.estop_monitor = EStopMonitor(self.connection_manager, self.logger)
     
     def _is_cache_valid(self, tag: str) -> bool:
         """Check if cached tag value is still valid"""
@@ -374,31 +408,90 @@ class EnhancedPLCValidator:
         report_lines.append(f"Report Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         report_lines.append("")
         
-        # Parameter bits
+        # Parameter bits - Updated with complete G Par definitions
         parameter_tags = {
             'g_Par': {
-                0: 'Pneumatic Roll Lift', 1: 'Webber Installed', 2: 'Disable Downstream Conveyor Interlock',
-                3: 'Printer Forward Sensor Disabled', 4: 'Not Used', 5: 'Disable OEE Starved Time Reporting',
-                6: 'Enable 3-Position Nip Valve', 7: 'Enable Auto Splice', 8: 'Use Extended Discharge Timer',
-                9: 'Bypass Guarding Fault', 10: 'Enable Machine Test Mode', 11: 'Enable Manual Bypass',
-                12: 'Disable Alarm Horn', 13: 'Enable Remote Start', 14: 'Enable Diagnostic Logging',
-                15: 'Enable Power Save Mode', 16: 'Enable Light Curtain Override', 17: 'Bypass Safety Interlock',
-                18: 'Allow Index During Alarm', 19: 'Enable Maintenance Mode', 20: 'Ignore Load Cell Faults',
-                21: 'Enable High-Speed Mode', 22: 'Use Alternative Recipe Logic', 23: 'Bypass Printer Faults',
-                24: 'Enable Label Verification', 25: 'Ignore Film Tracking Sensor', 26: 'Use Legacy Motion Control',
-                27: 'Enable Secondary Safety Check', 28: 'Disable Zero Speed Check', 29: 'Enable Slow Start Feature',
-                30: 'Use Backup PLC Settings', 31: 'Force E-Stop Override',
+                0: 'FIFE Control - ON = Enable External Console, OFF = Enable PLC/HMI Console',
+                1: 'Nip Roller Sensors - ON = Use Advance Sensor, OFF = Use Retracted Sensor',
+                2: 'Webber Label Applicator Installed',
+                3: 'Conveyor Tote Starved Sensor - ON=Input ON when Tote Not Present, OFF=Input ON when Tote Present',
+                4: 'Slide Tote Starved Sensor - ON=Input ON when Tote Not Present, OFF=Input ON when Tote Present',
+                5: 'OEE Starved Time Reporting - ON=Disabled, OFF=Enabled',
+                6: 'Monitor OEE EVENT FIFO, ONLY FOR Pack engineer, do not turn it ON',
+                7: 'Downstream Conveyor Interlock - ON = Disabled, OFF = Enabled',
+                9: 'No Printer Mode',
+                11: 'Disable Light Curtain interlock to Label Applicator Tamp Head - ON=Disabled',
+                12: 'Enable HMI Variable Length Control ON = Enabled',
+                13: '24Q Package Film Installed',
+                14: '30Q Package Film Installed',
+                15: '36Q Package Film Installed',
+                16: 'Poly Package Film Installed',
+                17: 'Paper Package Film installed',
+                18: 'Ultrasonic URF calculation modes - ON=V1.0 (original), OFF=V1.1 (new)',
+                19: 'Enable Front Nip Roller Feed in Forward Direction (pre 2021 Machines)',
+                20: 'Dual Seal Jaw Servos, IFM AL1122 IOLink Master, Horizontal Seal Cooling Nozzles, Upper Clamp Cylinders, Spring Jaw Compliance. Incompatible w/ External Web Guide Controller',
+                21: 'Dual Seal Jaw Servos, IFM AL1122 IOLink Master, Horizontal Cooling Nozzles, Upper Clamp Cylinders, Pneumatic Jaw Compliance. Incompatible w/ External Web Guide Controller',
+                22: 'EU 36Q Package Paper Installed',
+                24: 'Gripper tension at Bag Release Position Enabled (controlled by config)',
+                25: 'PillPack mode enabled',
+                26: 'On = AL1422 installed / AL1122 Inhibited, Off = AL1122 installed / AL1422 inhibited',
+                27: 'SPA',
+                28: 'On = Lidar Installed / Off = Hor. Seal Jaw Laser Detector Sensor Installed',
+                29: 'Commissioning Mode - Do Not Use for Production - ON=Dry Cycle Mode Active',
+                30: 'SPA Integration Mode - ON=Integrated, OFF=Stand-Alone',
+                31: 'Commissioning Mode - Do Not Use for Production - ON=Commission Mode Active',
+            },
+            'g_Par1': {
+                0: 'EU Paper Mode',
+                1: 'Jaw auto seal pressure adjustment',
+                2: 'Temporary fix for nip roller until safety code is fixed',
+                3: 'temporary, able and disable fife auto/manual mode functionality',
+                4: 'Reduce speed for for gripper 70%',
+                5: 'Pregessis paper testing',
+                6: 'Nip Roller Inrush Current Monitor for Low Roll Detection',
+                15: 'Delay stop of the smartpac downstream',
+            },
+            'g_ParNew': {
+                0: 'Vision test active',
+                1: 'Variable Bag length test active (ON - Active, OFF- Not active)',
+                2: 'Sealing Process Issue detected, divert to KO',
+                3: 'Vertical seal clearance active',
+                4: 'Paper Type Georgia Pacific - Enabled',
+                5: 'Paper Type Pregis - Enabled',
+                6: 'Horizontal & Vertical Seal Sensor test',
+                7: 'Tall item Ultrasonic value correction Enabled',
+                8: 'Inhibit Sealing by ASIN Sensors (ON - Sealing inhibited, OFF- KO after sealing)',
+                9: 'Horizontal Seal Sensor check for increasing bag size (ON - Horizontal sensor, OFF- Product inside bag)',
+                10: 'OFF - To disable Bag gripper (pocket stationary output), JawSeqCoolingRequest',
+                11: 'FOR TESTING - To Copy 50 last PACK, SLAM messages',
+                12: 'To bypass the vertical keep out area warning (ON - NOT bypassed, OFF - Bypassed)',
+                13: 'Low Sealing Force Process failure - ON - Enabled, OFF- Disabled',
+                14: 'Servo speed ramp for cold start',
+                15: 'Commissioning Mode - Do Not Use for Production - OFF = Dry Cycle Mode Active But Paper Mode OFF',
+                16: 'New_Reject_Flap_Installed (no extended function)',
+                17: 'BrownItemDetection (ON - Active, OFF- Not active)',
+                19: 'Gripper pull tension release - ON = Split into first and final, OFF = Use entire distance',
+                20: 'For dry cycling 16Q bags',
+                21: 'ON = 2 new top rear ultrasonics for 36Q along with existing 2 top ultrasonics code, OFF = Only existing 2 top ultrasonics code is used',
+            },
+            'g_parTemp': {
+                1: '2021-11-03 - Disable OEE Starved time reporting',
+                2: '2021-10-18 - disable takeaway and reject conveyor jams stopping machine',
+                3: '2021-10-18 - Allow disabling of tamp interlock to light curtain',
+                5: '2021-10-27 - Allow downstream inot running timer to be set higher than 15 seconds',
+                6: '2021-10-29 - Enable 2 Bag Mode',
+                7: '2021-11-03 - Disable all takeaway and reject jam alarming',
             }
         }
         
         for tag, descriptions in parameter_tags.items():
             active_bits = self.get_parameter_bits(tag, descriptions)
-            report_lines.append(f"{tag.upper()} ACTIVE BITS:")
+            report_lines.append(f"{tag.upper()} BITS ON:")
             if active_bits:
                 for bit, description in active_bits:
-                    report_lines.append(f"  Bit {bit}: {description}")
+                    report_lines.append(f" - Bit {bit}: {description}")
             else:
-                report_lines.append("  None")
+                report_lines.append(" None")
             report_lines.append("")
         
         # Safety status
@@ -457,6 +550,61 @@ class EnhancedPLCValidator:
         
         return results
     
+    def start_estop_monitoring(self, interval: float = 1.0):
+        """Start E Stop state change monitoring"""
+        self.logger.info(f"Starting E Stop monitoring with {interval}s interval")
+        self.estop_monitor.start_monitoring(interval)
+    
+    def stop_estop_monitoring(self):
+        """Stop E Stop state change monitoring"""
+        self.logger.info("Stopping E Stop monitoring")
+        self.estop_monitor.stop_monitoring()
+    
+    def get_estop_status(self) -> Dict[str, Any]:
+        """Get current E Stop status summary"""
+        return self.estop_monitor.get_state_summary()
+    
+    def get_estop_recent_changes(self, count: int = 10) -> List[EStopStateChange]:
+        """Get recent E Stop state changes"""
+        return self.estop_monitor.get_recent_changes(count)
+    
+    def get_estop_changes_for_estop(self, estop_id: str, count: int = 10) -> List[EStopStateChange]:
+        """Get recent changes for a specific E Stop"""
+        return self.estop_monitor.get_changes_for_estop(estop_id, count)
+    
+    def export_estop_changes(self, filename: str):
+        """Export E Stop state changes to JSON file"""
+        self.estop_monitor.export_changes_to_json(filename)
+    
+    def export_estop_changes_csv(self, filename: str):
+        """Export E Stop state changes to CSV file with timestamps"""
+        self.estop_monitor.export_changes_to_csv(filename)
+    
+    def generate_estop_summary(self) -> Dict[str, Any]:
+        """Generate comprehensive E Stop monitoring session summary"""
+        return self.estop_monitor.generate_summary()
+    
+    def generate_estop_report(self) -> str:
+        """Generate E Stop monitoring report"""
+        return self.estop_monitor.generate_report()
+    
+    def generate_estop_monitoring_session_report(self) -> str:
+        """Generate comprehensive E Stop monitoring session report"""
+        return self.estop_monitor.generate_monitoring_session_report()
+    
+    def export_estop_monitoring_session_csv(self, filename: str):
+        """Export E Stop monitoring session report to CSV"""
+        self.estop_monitor.export_monitoring_session_to_csv(filename)
+    
+    def add_estop_change_callback(self, callback):
+        """Add callback for E Stop state changes"""
+        self.estop_monitor.add_state_change_callback(callback)
+    
+    def remove_estop_change_callback(self, callback):
+        """Remove E Stop state change callback"""
+        self.estop_monitor.remove_state_change_callback(callback)
+    
     def close(self):
-        """Close the PLC connection"""
+        """Close the PLC connection and stop monitoring"""
+        self.stop_estop_monitoring()
         self.connection_manager.close()

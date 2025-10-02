@@ -36,6 +36,15 @@ class CognexConfig:
     socket_timeout: float = 3.0
 
 @dataclass
+class EStopConfig:
+    """E Stop monitoring configuration"""
+    default_monitor_interval: float = 1.0
+    change_detection_enabled: bool = True
+    log_all_changes: bool = True
+    max_history_size: int = 1000
+    auto_start_monitoring: bool = False
+
+@dataclass
 class UIConfig:
     """User interface configuration"""
     window_size: str = "1120x760"
@@ -50,6 +59,7 @@ class AppConfig:
     network: NetworkConfig = field(default_factory=NetworkConfig)
     plc: PLCConfig = field(default_factory=PLCConfig)
     cognex: CognexConfig = field(default_factory=CognexConfig)
+    estop: EStopConfig = field(default_factory=EStopConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     
     # File paths
