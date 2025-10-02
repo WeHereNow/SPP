@@ -20,7 +20,6 @@ try:
     from estop_monitor import EStopMonitor, EStopStateChange
     from cognex_validation import CognexValidator, CognexDevice, CognexResult
     from plc_verification import PLCVerifier, PLCVerificationResult
-    from hmi_verification import HMIVerifier, HMIVerificationResult
     from faults_warnings import FaultsWarningsProcessor, FaultEntry
     ENHANCED_MODULES_AVAILABLE = True
 except ImportError as e:
@@ -156,20 +155,6 @@ except ImportError as e:
     class PLCVerificationResult:
         pass
     
-    class HMIVerifier:
-        def __init__(self, logger=None):
-            pass
-        def verify_hmi(self, ip_address, port=2222, expected_app_name="", expected_version=""):
-            return None
-        def generate_report(self, results):
-            return "Enhanced HMI verification not available"
-        def export_results_json(self, results, filename=None):
-            return "hmi_verification.json"
-        def export_results_csv(self, results, filename=None):
-            return "hmi_verification.csv"
-    
-    class HMIVerificationResult:
-        pass
     
     class FaultEntry:
         def __init__(self, source="", index=0, bit=0, tag="", description="", resolution=""):
@@ -420,7 +405,6 @@ class EnhancedApp(tk.Tk):
         self._build_estop_monitor_tab()
         self._build_cognex_tab()
         self._build_plc_verification_tab()
-        self._build_hmi_verification_tab()
         self._build_faults_tab()
         self._build_settings_tab()
     
@@ -665,67 +649,6 @@ class EnhancedApp(tk.Tk):
         self.plc_verify_text, self.plc_verify_logger = self._make_text_panel(tab)
         self.plc_verify_results = []
     
-    def _build_hmi_verification_tab(self):
-        """Build HMI verification tab"""
-        tab = ttk.Frame(self.notebook)
-        self.notebook.add(tab, text="HMI Verification")
-        
-        # Toolbar
-        toolbar = self._build_toolbar(tab, "HMI Verification", "Verify HMI runtime app name and version")
-        
-        # HMI configuration
-        config_frame = ttk.Frame(tab)
-        config_frame.pack(fill=tk.X, padx=10, pady=6)
-        
-        # HMI IP input
-        ip_frame = ttk.Frame(config_frame)
-        ip_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(ip_frame, text="HMI IP Address:").pack(side=tk.LEFT, padx=(0, 6))
-        self.entry_hmi_verify_ip = ttk.Entry(ip_frame, width=24)
-        self.entry_hmi_verify_ip.insert(0, "11.200.0.180")
-        self.entry_hmi_verify_ip.pack(side=tk.LEFT, padx=(0, 20))
-        
-        # Port input
-        port_frame = ttk.Frame(config_frame)
-        port_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(port_frame, text="Port:").pack(side=tk.LEFT, padx=(0, 6))
-        self.entry_hmi_verify_port = ttk.Entry(port_frame, width=8)
-        self.entry_hmi_verify_port.insert(0, "2222")
-        self.entry_hmi_verify_port.pack(side=tk.LEFT, padx=(0, 20))
-        
-        # Expected values
-        expected_frame = ttk.Frame(config_frame)
-        expected_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(expected_frame, text="Expected App Name:").pack(side=tk.LEFT, padx=(0, 6))
-        self.entry_hmi_expected_app = ttk.Entry(expected_frame, width=30)
-        self.entry_hmi_expected_app.insert(0, "FactoryTalk View SE")
-        self.entry_hmi_expected_app.pack(side=tk.LEFT, padx=(0, 20))
-        
-        version_frame = ttk.Frame(config_frame)
-        version_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(version_frame, text="Expected Version:").pack(side=tk.LEFT, padx=(0, 6))
-        self.entry_hmi_expected_version = ttk.Entry(version_frame, width=20)
-        self.entry_hmi_expected_version.pack(side=tk.LEFT, padx=(0, 20))
-        
-        # Control buttons
-        self.btn_hmi_verify_run = ttk.Button(toolbar, text="Verify HMI", 
-                                            style="Accent.TButton", 
-                                            command=self._on_run_hmi_verification)
-        self.btn_hmi_verify_run.pack(side=tk.LEFT, padx=6, pady=6)
-        
-        self.btn_hmi_verify_export_json = ttk.Button(toolbar, text="Export JSON", 
-                                                    command=self._on_export_hmi_verify_json)
-        self.btn_hmi_verify_export_json.pack(side=tk.LEFT, padx=6, pady=6)
-        self.btn_hmi_verify_export_json.configure(state=tk.DISABLED)
-        
-        self.btn_hmi_verify_export_csv = ttk.Button(toolbar, text="Export CSV", 
-                                                   command=self._on_export_hmi_verify_csv)
-        self.btn_hmi_verify_export_csv.pack(side=tk.LEFT, padx=6, pady=6)
-        self.btn_hmi_verify_export_csv.configure(state=tk.DISABLED)
-        
-        # Results display
-        self.hmi_verify_text, self.hmi_verify_logger = self._make_text_panel(tab)
-        self.hmi_verify_results = []
     
     def _build_faults_tab(self):
         """Build faults/warnings tab (keeping original functionality)"""
@@ -875,9 +798,8 @@ class EnhancedApp(tk.Tk):
         self.bind('<Control-e>', lambda e: self.notebook.select(2))  # E Stop Monitor tab
         self.bind('<Control-c>', lambda e: self.notebook.select(3))  # Cognex tab
         self.bind('<Control-v>', lambda e: self.notebook.select(4))  # PLC Verification tab
-        self.bind('<Control-h>', lambda e: self.notebook.select(5))  # HMI Verification tab
-        self.bind('<Control-f>', lambda e: self.notebook.select(6))  # Faults tab
-        self.bind('<Control-s>', lambda e: self.notebook.select(7))  # Settings tab
+        self.bind('<Control-f>', lambda e: self.notebook.select(5))  # Faults tab
+        self.bind('<Control-s>', lambda e: self.notebook.select(6))  # Settings tab
         self.bind('<F5>', lambda e: self._refresh_current_tab())
     
     def _refresh_current_tab(self):
@@ -893,8 +815,6 @@ class EnhancedApp(tk.Tk):
             self._on_run_cognex_validation()
         elif current_tab == 4:  # PLC Verification tab
             self._on_run_plc_verification()
-        elif current_tab == 5:  # HMI Verification tab
-            self._on_run_hmi_verification()
     
     def _run_in_thread(self, button, target, *args, **kwargs):
         """Run function in background thread with button state management"""
@@ -1489,92 +1409,6 @@ class EnhancedApp(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
-    def _on_run_hmi_verification(self):
-        """Run HMI verification"""
-        if not self._show_confirmation_dialog(
-            "HMI Verification",
-            "This will connect to the HMI and check runtime application information.",
-            "HMI verification"
-        ):
-            return
-        
-        self.hmi_verify_text.delete("1.0", tk.END)
-        ip = self.entry_hmi_verify_ip.get().strip()
-        expected_app = self.entry_hmi_expected_app.get().strip()
-        expected_version = self.entry_hmi_expected_version.get().strip()
-        
-        if not ip:
-            messagebox.showerror("Error", "Please enter an HMI IP address")
-            return
-        
-        try:
-            port = int(self.entry_hmi_verify_port.get() or "2222")
-        except ValueError:
-            messagebox.showerror("Error", "Please enter a valid port number")
-            return
-        
-        def run_verification():
-            try:
-                self.logger.info(f"Starting HMI verification for {ip}:{port}")
-                self.hmi_verifier = HMIVerifier(self.hmi_verify_logger)
-                
-                result = self.hmi_verifier.verify_hmi(
-                    ip_address=ip,
-                    port=port,
-                    expected_app_name=expected_app,
-                    expected_version=expected_version
-                )
-                
-                self.hmi_verify_results = [result]
-                report = self.hmi_verifier.generate_report(self.hmi_verify_results)
-                self.hmi_verify_text.insert(tk.END, report)
-                
-                self.after(0, lambda: self.btn_hmi_verify_export_json.configure(state=tk.NORMAL))
-                self.after(0, lambda: self.btn_hmi_verify_export_csv.configure(state=tk.NORMAL))
-                
-            except Exception as e:
-                self.logger.error(f"HMI verification error: {e}")
-                self.hmi_verify_text.insert(tk.END, f"Error: {e}\n")
-        
-        self._run_in_thread(self.btn_hmi_verify_run, run_verification)
-    
-    def _on_export_hmi_verify_json(self):
-        """Export HMI verification results to JSON"""
-        if not self.hmi_verify_results:
-            messagebox.showwarning("No Data", "No HMI verification results to export")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Save HMI Verification Results (JSON)"
-        )
-        
-        if filename:
-            try:
-                self.hmi_verifier.export_results_json(self.hmi_verify_results, filename)
-                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
-            except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
-    
-    def _on_export_hmi_verify_csv(self):
-        """Export HMI verification results to CSV"""
-        if not self.hmi_verify_results:
-            messagebox.showwarning("No Data", "No HMI verification results to export")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            title="Save HMI Verification Results (CSV)"
-        )
-        
-        if filename:
-            try:
-                self.hmi_verifier.export_results_csv(self.hmi_verify_results, filename)
-                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
-            except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
     def _on_load_faults_docx(self):
         """Load faults DOCX file"""
