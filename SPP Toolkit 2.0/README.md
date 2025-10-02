@@ -49,10 +49,12 @@ SPP Toolkit 2.0 is a comprehensive industrial automation validation tool designe
 
 ### Installation
 
-#### Option 1: Executable (Recommended)
+#### Option 1: Standalone Executable (Recommended - No Python Required!)
 1. Download `SPP Toolkit 2.0.zip`
 2. Extract to desired location
-3. Run `SPP Toolkit 2.0.exe`
+3. **Windows**: Double-click `RUN_SPP_TOOLKIT.bat`
+4. **Linux/Mac**: Run `./RUN_SPP_TOOLKIT.sh`
+5. **Direct**: Run `SPP_Toolkit_2.0` executable directly
 
 #### Option 2: Python Installation
 1. Install Python 3.8+ from [python.org](https://python.org)
@@ -121,6 +123,17 @@ The toolkit monitors these E-Stop tags:
 ### File Structure
 ```
 SPP Toolkit 2.0/
+├── SPP_Toolkit_2.0              # Standalone executable (8.2 MB)
+├── RUN_SPP_TOOLKIT.bat          # Windows launcher (executable version)
+├── RUN_SPP_TOOLKIT.sh           # Linux/Mac launcher (executable version)
+├── main.py                      # Python entry point
+├── SPP_Toolkit_2.0.bat          # Windows launcher (Python version)
+├── SPP_Toolkit_2.0.sh           # Linux/Mac launcher (Python version)
+├── build_executable.py          # Executable builder script
+├── requirements.txt              # Python dependencies
+├── README.md                     # This file
+├── INSTALLATION.md               # Installation guide
+├── VERSION.txt                   # Version information
 ├── src/                          # Source code
 │   ├── spp_toolkit_enhanced.py   # Main GUI application
 │   ├── config.py                 # Configuration management
@@ -133,9 +146,7 @@ SPP Toolkit 2.0/
 │   └── tag_validator.py          # Tag validation utilities
 ├── config/                       # Configuration files
 ├── docs/                         # Documentation
-├── logs/                         # Log files (created at runtime)
-├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+└── logs/                         # Log files (created at runtime)
 ```
 
 ### Troubleshooting
