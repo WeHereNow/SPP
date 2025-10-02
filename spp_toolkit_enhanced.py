@@ -124,8 +124,6 @@ except ImportError as e:
             return []
         def generate_report(self, results):
             return "Enhanced Cognex validation not available"
-        def export_results_json(self, results, filename=None):
-            return "cognex_results.json"
         def export_results_csv(self, results, filename=None):
             return "cognex_results.csv"
     
@@ -147,8 +145,6 @@ except ImportError as e:
             return None
         def generate_report(self, results):
             return "Enhanced PLC verification not available"
-        def export_results_json(self, results, filename=None):
-            return "plc_verification.json"
         def export_results_csv(self, results, filename=None):
             return "plc_verification.csv"
     
@@ -535,10 +531,6 @@ class EnhancedApp(tk.Tk):
                                         command=self._on_run_cognex_validation)
         self.btn_cognex_run.pack(side=tk.LEFT, padx=6, pady=6)
         
-        self.btn_cognex_export_json = ttk.Button(toolbar, text="Export JSON", 
-                                                command=self._on_export_cognex_json)
-        self.btn_cognex_export_json.pack(side=tk.LEFT, padx=6, pady=6)
-        self.btn_cognex_export_json.configure(state=tk.DISABLED)
         
         self.btn_cognex_export_csv = ttk.Button(toolbar, text="Export CSV", 
                                                command=self._on_export_cognex_csv)
@@ -635,10 +627,6 @@ class EnhancedApp(tk.Tk):
                                             command=self._on_run_plc_verification)
         self.btn_plc_verify_run.pack(side=tk.LEFT, padx=6, pady=6)
         
-        self.btn_plc_verify_export_json = ttk.Button(toolbar, text="Export JSON", 
-                                                    command=self._on_export_plc_verify_json)
-        self.btn_plc_verify_export_json.pack(side=tk.LEFT, padx=6, pady=6)
-        self.btn_plc_verify_export_json.configure(state=tk.DISABLED)
         
         self.btn_plc_verify_export_csv = ttk.Button(toolbar, text="Export CSV", 
                                                    command=self._on_export_plc_verify_csv)
@@ -1257,7 +1245,6 @@ class EnhancedApp(tk.Tk):
             return
         
         self.cognex_text.delete("1.0", tk.END)
-        self.btn_cognex_export_json.configure(state=tk.DISABLED)
         self.btn_cognex_export_csv.configure(state=tk.DISABLED)
         
         def run_validation():
@@ -1275,7 +1262,6 @@ class EnhancedApp(tk.Tk):
                 report = self.cognex_validator.generate_report(results)
                 self.cognex_text.insert(tk.END, report)
                 
-                self.after(0, lambda: self.btn_cognex_export_json.configure(state=tk.NORMAL))
                 self.after(0, lambda: self.btn_cognex_export_csv.configure(state=tk.NORMAL))
                 
             except Exception as e:
@@ -1284,24 +1270,6 @@ class EnhancedApp(tk.Tk):
         
         self._run_in_thread(self.btn_cognex_run, run_validation)
     
-    def _on_export_cognex_json(self):
-        """Export Cognex results to JSON"""
-        if not self.cognex_results:
-            messagebox.showwarning("No Data", "No Cognex validation results to export")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Save Cognex Validation Results (JSON)"
-        )
-        
-        if filename:
-            try:
-                self.cognex_validator.export_results_json(self.cognex_results, filename)
-                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
-            except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
     def _on_export_cognex_csv(self):
         """Export Cognex results to CSV"""
@@ -1362,7 +1330,6 @@ class EnhancedApp(tk.Tk):
                 report = self.plc_verifier.generate_report(self.plc_verify_results)
                 self.plc_verify_text.insert(tk.END, report)
                 
-                self.after(0, lambda: self.btn_plc_verify_export_json.configure(state=tk.NORMAL))
                 self.after(0, lambda: self.btn_plc_verify_export_csv.configure(state=tk.NORMAL))
                 
             except Exception as e:
@@ -1371,24 +1338,6 @@ class EnhancedApp(tk.Tk):
         
         self._run_in_thread(self.btn_plc_verify_run, run_verification)
     
-    def _on_export_plc_verify_json(self):
-        """Export PLC verification results to JSON"""
-        if not self.plc_verify_results:
-            messagebox.showwarning("No Data", "No PLC verification results to export")
-            return
-        
-        filename = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Save PLC Verification Results (JSON)"
-        )
-        
-        if filename:
-            try:
-                self.plc_verifier.export_results_json(self.plc_verify_results, filename)
-                messagebox.showinfo("Export Complete", f"Results exported to:\n{filename}")
-            except Exception as e:
-                messagebox.showerror("Export Error", f"Failed to export results:\n{e}")
     
     def _on_export_plc_verify_csv(self):
         """Export PLC verification results to CSV"""

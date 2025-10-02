@@ -3,7 +3,6 @@ Enhanced PLC Verification Module
 Verifies PLC logic, project information, and generates detailed reports
 """
 import time
-import json
 import csv
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -508,108 +507,71 @@ class PLCVerifier:
         return self.results
     
     def generate_report(self, results: List[PLCVerificationResult]) -> str:
-        """Generate a formatted report of verification results"""
+        """Generate a simplified report of verification results"""
         report_lines = []
-        report_lines.append("\n" + "=" * 80)
+        report_lines.append("\n" + "=" * 60)
         report_lines.append("PLC VERIFICATION REPORT")
-        report_lines.append("=" * 80)
+        report_lines.append("=" * 60)
+        report_lines.append(f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        report_lines.append("")
         
-        # Summary statistics
+        # Simplified results table
+        report_lines.append("VERIFICATION RESULTS:")
+        report_lines.append("-" * 80)
+        report_lines.append(f"{'IP Address':<16} {'Project Match':<15} {'Controller Status':<20}")
+        report_lines.append("-" * 80)
+        
+        for result in results:
+            # Determine project match status
+            if result.expected_project_name:
+                project_match = "✓ MATCH" if result.project_matches else "✗ NO MATCH"
+            else:
+                project_match = "N/A"
+            
+            # Determine controller status
+            if result.error_message:
+                controller_status = "ERROR"
+            elif result.connection_successful:
+                controller_status = "CONNECTED"
+            else:
+                controller_status = "DISCONNECTED"
+            
+            report_lines.append(
+                f"{result.ip_address:<16} {project_match:<15} {controller_status:<20}"
+            )
+        
+        # Summary information
+        report_lines.append("")
+        report_lines.append("SUMMARY:")
         total = len(results)
         successful_connections = len([r for r in results if r.connection_successful])
         project_matches = len([r for r in results if r.project_matches])
-        version_matches = len([r for r in results if r.version_matches])
-        errors = len([r for r in results if r.error_message])
         
-        report_lines.append(f"\nSUMMARY:")
         report_lines.append(f"  Total PLCs: {total}")
-        report_lines.append(f"  Successful Connections: {successful_connections}")
-        report_lines.append(f"  Project Name Matches: {project_matches}")
-        report_lines.append(f"  Version Matches: {version_matches}")
-        report_lines.append(f"  Errors: {errors}")
+        report_lines.append(f"  Connected: {successful_connections}")
+        report_lines.append(f"  Project Matches: {project_matches}")
         
-        # Detailed results
-        report_lines.append(f"\nDETAILED RESULTS:")
-        report_lines.append("-" * 120)
-        report_lines.append(f"{'IP Address':<16} {'Project Name':<25} {'Version':<10} {'Controller':<20} {'Status'}")
-        report_lines.append("-" * 120)
-        
+        # Show project name details for each PLC
+        report_lines.append("")
+        report_lines.append("PROJECT NAME DETAILS:")
         for result in results:
-            project_name = result.project_info.project_name[:24] if result.project_info.project_name else "Unknown"
-            version = f"{result.project_info.major_revision}.{result.project_info.minor_revision}"
-            controller = result.project_info.controller_name[:19] if result.project_info.controller_name else "Unknown"
-            
-            if result.error_message:
-                status = "ERROR"
-            elif result.connection_successful:
-                status = "OK"
+            report_lines.append(f"  {result.ip_address}:")
+            if result.project_info and result.project_info.project_name:
+                report_lines.append(f"    Current: {result.project_info.project_name}")
+                if result.expected_project_name:
+                    report_lines.append(f"    Expected: {result.expected_project_name}")
+                    report_lines.append(f"    Match: {'✓' if result.project_matches else '✗'}")
             else:
-                status = "FAILED"
-            
-            report_lines.append(
-                f"{result.ip_address:<16} {project_name:<25} {version:<10} {controller:<20} {status}"
-            )
-        
-        # Detailed information for each PLC
-        report_lines.append(f"\nDETAILED INFORMATION:")
-        for result in results:
-            report_lines.append(f"\nPLC: {result.ip_address}")
-            report_lines.append(f"  Project Name: {result.project_info.project_name}")
-            report_lines.append(f"  Version: {result.project_info.major_revision}.{result.project_info.minor_revision}")
-            report_lines.append(f"  Last Load Time: {result.project_info.last_load_timestamp}")
-            report_lines.append(f"  Controller Name: {result.project_info.controller_name}")
-            report_lines.append(f"  Controller Type: {result.project_info.controller_type}")
-            report_lines.append(f"  Firmware Version: {result.project_info.firmware_version}")
-            report_lines.append(f"  Serial Number: {result.project_info.serial_number}")
-            if result.project_info.checksum:
-                report_lines.append(f"  Checksum: {result.project_info.checksum}")
-            if result.project_info.signature:
-                report_lines.append(f"  Signature: {result.project_info.signature}")
-            
-            if result.expected_project_name:
-                report_lines.append(f"  Expected Project: {result.expected_project_name}")
-                report_lines.append(f"  Project Match: {'✓' if result.project_matches else '✗'}")
-            
-            if result.expected_major_revision or result.expected_minor_revision:
-                expected_version = f"{result.expected_major_revision}.{result.expected_minor_revision}"
-                report_lines.append(f"  Expected Version: {expected_version}")
-                report_lines.append(f"  Version Match: {'✓' if result.version_matches else '✗'}")
+                report_lines.append(f"    Project Name: Not Available")
             
             if result.error_message:
-                report_lines.append(f"  Error: {result.error_message}")
+                report_lines.append(f"    Error: {result.error_message}")
         
-        report_lines.append("=" * 80)
+        report_lines.append("=" * 60)
         report_lines.append("Verification complete.\n")
         
         return "\n".join(report_lines)
     
-    def export_results_json(self, results: List[PLCVerificationResult], filename: str = None) -> str:
-        """Export results to JSON file"""
-        if not filename:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"plc_verification_{timestamp}.json"
-        
-        # Convert results to serializable format
-        json_data = []
-        for result in results:
-            json_data.append({
-                "ip_address": result.ip_address,
-                "connection_successful": result.connection_successful,
-                "project_info": asdict(result.project_info),
-                "verification_timestamp": result.verification_timestamp,
-                "error_message": result.error_message,
-                "expected_project_name": result.expected_project_name,
-                "expected_major_revision": result.expected_major_revision,
-                "expected_minor_revision": result.expected_minor_revision,
-                "project_matches": result.project_matches,
-                "version_matches": result.version_matches
-            })
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=2, ensure_ascii=False)
-        
-        self.logger.info(f"Results exported to JSON: {filename}")
-        return filename
     
     def export_results_csv(self, results: List[PLCVerificationResult], filename: str = None) -> str:
         """Export results to CSV file"""

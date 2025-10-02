@@ -400,41 +400,6 @@ class CognexValidator:
         
         return "\n".join(report_lines)
     
-    def export_results_json(self, results: List[CognexResult], filename: str = None) -> str:
-        """Export results to JSON file"""
-        import json
-        
-        if not filename:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"cognex_validation_{timestamp}.json"
-        
-        # Convert results to serializable format
-        json_data = []
-        for result in results:
-            json_data.append({
-                "device": {
-                    "name": result.device.name,
-                    "model": result.device.model,
-                    "ip": result.device.ip,
-                    "cfg_file": result.device.cfg_file,
-                    "backup_path": result.device.backup_path
-                },
-                "backup_successful": result.backup_successful,
-                "backup_size": result.backup_size,
-                "backup_hash": result.backup_hash,
-                "local_file_exists": result.local_file_exists,
-                "local_file_hash": result.local_file_hash,
-                "files_match": result.files_match,
-                "upload_successful": result.upload_successful,
-                "error_message": result.error_message,
-                "timestamp": result.timestamp
-            })
-        
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(json_data, f, indent=2, ensure_ascii=False)
-        
-        self.logger.info(f"Results exported to JSON: {filename}")
-        return filename
     
     def export_results_csv(self, results: List[CognexResult], filename: str = None) -> str:
         """Export results to CSV file"""
