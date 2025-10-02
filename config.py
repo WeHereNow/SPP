@@ -45,6 +45,15 @@ class EStopConfig:
     auto_start_monitoring: bool = False
 
 @dataclass
+class HMIConfig:
+    """HMI verification configuration"""
+    default_port: int = 2222  # FactoryTalk View SE default port
+    connection_timeout: float = 5.0
+    read_timeout: float = 10.0
+    max_retries: int = 3
+    retry_delay: float = 1.0
+
+@dataclass
 class UIConfig:
     """User interface configuration"""
     window_size: str = "1120x760"
@@ -60,6 +69,7 @@ class AppConfig:
     plc: PLCConfig = field(default_factory=PLCConfig)
     cognex: CognexConfig = field(default_factory=CognexConfig)
     estop: EStopConfig = field(default_factory=EStopConfig)
+    hmi: HMIConfig = field(default_factory=HMIConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     
     # File paths
