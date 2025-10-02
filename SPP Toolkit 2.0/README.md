@@ -49,14 +49,15 @@ SPP Toolkit 2.0 is a comprehensive industrial automation validation tool designe
 
 ### Installation
 
-#### Option 1: Standalone Executable (Recommended - No Python Required!)
+#### Option 1: Standalone Executable (Linux/Mac - No Python Required!)
 1. Download `SPP Toolkit 2.0.zip`
 2. Extract to desired location
-3. **Windows**: Double-click `RUN_SPP_TOOLKIT.bat`
-4. **Linux/Mac**: Run `./RUN_SPP_TOOLKIT.sh`
-5. **Direct**: Run `SPP_Toolkit_2.0` executable directly
+3. **Linux/Mac**: Run `./RUN_SPP_TOOLKIT.sh`
+4. **Direct**: Run `SPP_Toolkit_2.0` executable directly
 
-#### Option 2: Python Installation
+**⚠️ Windows Users**: The included executable is for Linux. For Windows, use Option 2 (Python version) or build your own Windows executable.
+
+#### Option 2: Python Installation (Recommended for Windows)
 1. Install Python 3.8+ from [python.org](https://python.org)
 2. Install dependencies:
    ```bash
@@ -64,8 +65,14 @@ SPP Toolkit 2.0 is a comprehensive industrial automation validation tool designe
    ```
 3. Run the application:
    ```bash
-   python src/spp_toolkit_enhanced.py
+   python main.py
    ```
+   Or double-click `SPP_Toolkit_2.0.bat` (Windows) or `./SPP_Toolkit_2.0.sh` (Linux/Mac)
+
+#### Option 3: Build Windows Executable
+1. Install Python 3.8+ and PyInstaller: `pip install pyinstaller`
+2. Run: `python build_windows_executable.py`
+3. Use the generated `SPP_Toolkit_2.0.exe`
 
 ### Configuration
 
