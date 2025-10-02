@@ -1,0 +1,34 @@
+SPP Toolkit 2.0
+Version: 2.0.0
+Build Date: 2025-10-02
+Build Type: Release
+
+Features:
+- Complete G Par bit monitoring (g_Par, g_Par1, g_ParNew, g_parTemp)
+- Enhanced E-Stop monitoring with state change detection
+- Simplified PLC verification output
+- CSV export functionality
+- Network device validation
+- Comprehensive session reporting
+- Executable packaging for easy distribution
+
+Compatible Systems:
+- Windows 10/11
+- Linux (Ubuntu 18.04+)
+- macOS 10.14+
+
+Compatible PLCs:
+- Allen-Bradley ControlLogix
+- Allen-Bradley CompactLogix
+- Allen-Bradley GuardLogix
+- Allen-Bradley Compact GuardLogix
+
+Compatible Vision Systems:
+- Cognex In-Sight series cameras
+
+Dependencies:
+- Python 3.8+ (for source version)
+- pylogix (PLC communication)
+- tkinter (GUI framework)
+- ping3 (network utilities)
+- psutil (system utilities)
