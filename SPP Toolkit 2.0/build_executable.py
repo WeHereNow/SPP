@@ -25,15 +25,15 @@ def build_executable():
     """Build the executable using PyInstaller"""
     print("🔨 Building SPP Toolkit 2.0 executable...")
     
-    # PyInstaller command
+    # PyInstaller command (Linux/Mac syntax)
     cmd = [
         "pyinstaller",
         "--onefile",
         "--name=SPP_Toolkit_2.0",
-        "--add-data=src;src",
-        "--add-data=config;config", 
-        "--add-data=README.md;.",
-        "--add-data=requirements.txt;.",
+        "--add-data=src:src",
+        "--add-data=config:config", 
+        "--add-data=README.md:.",
+        "--add-data=requirements.txt:.",
         "--hidden-import=tkinter",
         "--hidden-import=tkinter.ttk",
         "--hidden-import=pylogix",
