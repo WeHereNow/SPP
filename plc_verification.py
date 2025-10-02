@@ -461,28 +461,10 @@ class PLCVerifier:
                 else:
                     self.logger.warning(f"  ⚠ Project name mismatch - Expected: {expected_project_name}, Found: {project_info.project_name}")
             
-            # Verify version
-            if expected_major_revision or expected_minor_revision:
-                major_match = (not expected_major_revision or project_info.major_revision == expected_major_revision)
-                minor_match = (not expected_minor_revision or project_info.minor_revision == expected_minor_revision)
-                result.version_matches = major_match and minor_match
-                
-                if result.version_matches:
-                    self.logger.info(f"  ✓ Version matches: {project_info.major_revision}.{project_info.minor_revision}")
-                else:
-                    self.logger.warning(f"  ⚠ Version mismatch - Expected: {expected_major_revision}.{expected_minor_revision}, Found: {project_info.major_revision}.{project_info.minor_revision}")
+            # Version verification removed - only checking project name
             
-            # Log project information
+            # Log project information (simplified - only project name)
             self.logger.info(f"  Project Name: {project_info.project_name}")
-            self.logger.info(f"  Version: {project_info.major_revision}.{project_info.minor_revision}")
-            self.logger.info(f"  Last Load: {project_info.last_load_timestamp}")
-            self.logger.info(f"  Controller: {project_info.controller_name} ({project_info.controller_type})")
-            self.logger.info(f"  Firmware: {project_info.firmware_version}")
-            self.logger.info(f"  Serial: {project_info.serial_number}")
-            if project_info.checksum:
-                self.logger.info(f"  Checksum: {project_info.checksum}")
-            if project_info.signature:
-                self.logger.info(f"  Signature: {project_info.signature}")
             
         except Exception as e:
             result.error_message = str(e)
@@ -638,34 +620,19 @@ class PLCVerifier:
         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([
-                'IP Address', 'Connection Successful', 'Project Name', 'Major Revision', 'Minor Revision',
-                'Last Load Timestamp', 'Controller Name', 'Controller Type', 'Firmware Version',
-                'Serial Number', 'Checksum', 'Signature', 'Expected Project Name',
-                'Expected Major Revision', 'Expected Minor Revision', 'Project Matches',
-                'Version Matches', 'Error Message', 'Verification Timestamp'
+                'Verification Timestamp', 'IP Address', 'Project Name', 'Expected Project Name', 
+                'Project Matches', 'Connection Successful', 'Error Message'
             ])
             
             for result in results:
                 writer.writerow([
+                    result.verification_timestamp,
                     result.ip_address,
-                    result.connection_successful,
-                    result.project_info.project_name,
-                    result.project_info.major_revision,
-                    result.project_info.minor_revision,
-                    result.project_info.last_load_timestamp,
-                    result.project_info.controller_name,
-                    result.project_info.controller_type,
-                    result.project_info.firmware_version,
-                    result.project_info.serial_number,
-                    result.project_info.checksum,
-                    result.project_info.signature,
+                    result.project_info.project_name if result.project_info else '',
                     result.expected_project_name,
-                    result.expected_major_revision,
-                    result.expected_minor_revision,
                     result.project_matches,
-                    result.version_matches,
-                    result.error_message,
-                    result.verification_timestamp
+                    result.connection_successful,
+                    result.error_message
                 ])
         
         self.logger.info(f"Results exported to CSV: {filename}")
