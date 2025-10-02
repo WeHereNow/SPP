@@ -96,13 +96,13 @@ G_PAR_BIT_TAGS = [
 ]
 
 G_PAR1_BIT_TAGS = [
-    'g_Par1.0', 'g_Par1.1', 'g_Par1.2', 'g_Par1.3', 'g_Par1.4', 'g_Par1.5', 'g_Par1.6'
+    'g_Par1.0', 'g_Par1.1', 'g_Par1.2', 'g_Par1.3', 'g_Par1.4', 'g_Par1.5', 'g_Par1.6', 'g_Par1.15'
 ]
 
 G_PARNEW_BIT_TAGS = [
     'g_ParNew.0', 'g_ParNew.1', 'g_ParNew.2', 'g_ParNew.3', 'g_ParNew.4', 'g_ParNew.5', 'g_ParNew.6', 'g_ParNew.7',
-    'g_ParNew.8', 'g_ParNew.10', 'g_ParNew.11', 'g_ParNew.12', 'g_ParNew.13', 'g_ParNew.14', 'g_ParNew.15',
-    'g_ParNew.16', 'g_ParNew.17', 'g_ParNew.20', 'g_ParNew.21', 'g_ParNew.31'
+    'g_ParNew.8', 'g_ParNew.9', 'g_ParNew.10', 'g_ParNew.11', 'g_ParNew.12', 'g_ParNew.13', 'g_ParNew.14', 'g_ParNew.15',
+    'g_ParNew.16', 'g_ParNew.17', 'g_ParNew.19', 'g_ParNew.20', 'g_ParNew.21'
 ]
 
 G_PARTEMP_BIT_TAGS = [
@@ -136,6 +136,7 @@ G_PAR1_DESCRIPTIONS = {     # Bit descriptions for g_Par1 tag (examples)
     2: 'Temporary fix for nip roller until safety code is fixed',
     3: 'Enable/disable FIFE auto/manual mode', 4: 'Reduce speed for gripper 70%',
     5: 'Pregessis paper testing', 6: 'Nip Roller Inrush Current Monitor for Low Roll Detection',
+    15: 'Additional g_Par1 function (Bit 15)',
 }
 
 G_PARNEW_DESCRIPTIONS = {   # Bit descriptions for g_ParNew tag (selected bits)
@@ -147,7 +148,8 @@ G_PARNEW_DESCRIPTIONS = {   # Bit descriptions for g_ParNew tag (selected bits)
     10: 'Disable Bag gripper, JawSeqCoolingRequest', 11: 'Copy 50 last PACK, SLAM messages',
     12: 'Bypass the vertical keep out area warning', 13: 'Low Sealing Force Process failure',
     14: 'Servo speed ramp for cold start', 15: 'Commissioning Mode / Dry Cycle Mode',
-    20: 'Dry cycling 16$Q bags', 21: 'Use 2 new top rear ultrasonics for 36$Q',
+    16: 'Additional g_ParNew function (Bit 16)', 17: 'Additional g_ParNew function (Bit 17)',
+    19: 'Additional g_ParNew function (Bit 19)', 20: 'Dry cycling 16$Q bags', 21: 'Use 2 new top rear ultrasonics for 36$Q',
 }
 
 G_PARTEMP_DESCRIPTIONS = {  # Bit descriptions for g_parTemp tag (selected bits)
