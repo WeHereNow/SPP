@@ -59,7 +59,7 @@ PROGRAM1_DEVICES = {
     "11.200.1.18": "Cognex DM262 Ship Verify Reader",
     "11.200.1.19": "Cognex Tote Reader",
     "11.200.1.20": "Kinetix 5700",
-    "11.200.1.30": "AL1120 IO Link",
+    "11.200.1.31": "AL1422 IO Link",
     "11.200.1.35": "Keyence IV4 Sensor",
 }
 

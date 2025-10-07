@@ -1,0 +1,33 @@
+# SPP Toolkit 2.0 - Requirements
+# Industrial PLC and Vision System Validation Toolkit
+
+# Core GUI Framework
+tkinter  # Usually included with Python
+ttk  # Usually included with Python
+
+# PLC Communication
+pylogix>=1.0.0
+
+# Network and System Utilities
+ping3>=4.0.0
+psutil>=5.8.0
+
+# Data Processing and Export
+pandas>=1.3.0
+openpyxl>=3.0.0
+
+# Vision System Communication (if needed)
+# paramiko>=2.7.0  # For SSH connections to Cognex cameras
+# ftplib  # Usually included with Python
+
+# Logging and Configuration
+configparser>=5.0.0
+
+# Date and Time Utilities
+python-dateutil>=2.8.0
+
+# Optional: For enhanced GUI features
+pillow>=8.0.0  # For image handling if needed
+
+# Development and Packaging (for building executable)
+pyinstaller>=4.0.0

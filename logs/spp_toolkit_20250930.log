@@ -1,0 +1,111 @@
+2025-09-30 16:05:40,201 - test - INFO - info:107 - Logger test successful
+2025-09-30 16:06:27,264 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:06:27,264 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:18:52,391 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:18:52,391 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:30,610 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 16:19:30,610 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:30,610 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 16:19:31,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:32,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:33,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:34,611 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:35,612 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:19:35,612 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:36,612 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_changes_20250930_161936.json
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:19:36,613 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:38:49,693 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_export_20250930_163849.csv
+2025-09-30 16:38:49,693 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_export_20250930_163849.json
+2025-09-30 16:38:49,694 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:39:07,799 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_export_20250930_163907.csv
+2025-09-30 16:39:07,799 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_estop_export_20250930_163907.json
+2025-09-30 16:39:07,799 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 16:39:07,800 - EStopMonitor - INFO - info:107 - Exported 2 state changes to test_csv_format_20250930_163907.csv
+2025-09-30 16:39:11,342 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 16:39:11,342 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:11,342 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 16:39:12,342 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:13,343 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:14,343 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:15,343 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:16,343 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:17,344 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:18,344 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:19,344 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 16:39:20,345 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:07:56,713 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 17:07:56,713 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:07:56,714 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 17:07:57,714 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:07:58,714 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:07:59,714 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:07:59,715 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 17:07:59,715 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:07:59,716 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:08:03,248 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 17:08:03,249 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:03,249 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 17:08:04,249 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:05,249 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:06,250 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:07,250 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:08,250 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:09,251 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:08:10,251 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:46:38,942 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:46:38,943 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:46:38,943 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:46:39,943 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:46:40,943 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:46:41,943 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:55:06,288 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:55:06,288 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:55:06,288 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:55:06,289 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:55:06,289 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:57:56,003 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 17:57:56,003 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:56,003 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 17:57:57,003 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:58,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:57:59,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:00,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:01,004 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:01,005 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:58:02,005 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 17:58:02,005 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Exported monitoring session report to test_monitoring_session_20250930_175802.csv
+2025-09-30 17:58:02,006 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 17:58:02,006 - EStopMonitor - INFO - info:107 - Exported monitoring session report to test_csv_format_20250930_175802.csv
+2025-09-30 18:41:49,597 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 18:41:49,597 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:49,597 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 18:41:50,598 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:51,598 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:52,598 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:52,598 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 18:41:52,599 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_export_changes_20250930_184152.csv
+2025-09-30 18:41:52,599 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_export_changes_20250930_184152.json
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Starting E Stop monitoring with 1.0s interval
+2025-09-30 18:41:52,600 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:52,600 - PLCValidator - INFO - info:107 - Started E Stop monitoring with 1.0s interval
+2025-09-30 18:41:53,600 - PLCValidator - ERROR - error:113 - Error reading E Stop states: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 18:41:54,600 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Stopped E Stop monitoring
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_format_comparison_20250930_184154.csv
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Exported 0 state changes to test_format_comparison_20250930_184154.json
+2025-09-30 18:41:54,601 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 18:42:16,413 - EStopMonitor - INFO - info:107 - Exported 6 state changes to test_export_changes_with_data_20250930_184216.csv
+2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Exported 6 state changes to test_validator_export_20250930_184216.csv
+2025-09-30 18:42:16,414 - PLCValidator - INFO - info:107 - Stopping E Stop monitoring
+2025-09-30 19:29:12,878 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 19:29:12,878 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 19:29:40,608 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 19:29:40,608 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 20:48:11,502 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 20:48:11,502 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-09-30 20:49:21,622 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-09-30 20:49:21,623 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
