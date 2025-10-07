@@ -81,49 +81,112 @@ PROGRAM1_DEVICES: Dict[str, str] = {        # Dict of IP -> Device description
     "11.200.1.18": "Cognex DM262 Ship Verify Reader",
     "11.200.1.19": "Cognex Tote Reader",
     "11.200.1.20": "Kinetix 5700",
-    "11.200.1.30": "AL1120 IO Link",
+    "11.200.1.31": "AL1422 IO Link",
     "11.200.1.35": "Keyence IV4 Sensor",          
 }
 
 # ----------------------------- Program 2 tag maps (IO Validation) -------------------
 
+# Individual G Par bit tags to read directly
+G_PAR_BIT_TAGS = [
+    'g_Par.0', 'g_Par.1', 'g_Par.2', 'g_Par.3', 'g_Par.4', 'g_Par.5', 'g_Par.6', 'g_Par.7',
+    'g_Par.9', 'g_Par.11', 'g_Par.12', 'g_Par.13', 'g_Par.14', 'g_Par.15', 'g_Par.16', 'g_Par.17',
+    'g_Par.18', 'g_Par.19', 'g_Par.20', 'g_Par.21', 'g_Par.22', 'g_Par.23', 'g_Par.24', 'g_Par.25', 
+    'g_Par.26', 'g_Par.27', 'g_Par.28', 'g_Par.29', 'g_Par.30', 'g_Par.31'
+]
+
+G_PAR1_BIT_TAGS = [
+    'g_Par1.0', 'g_Par1.1', 'g_Par1.2', 'g_Par1.3', 'g_Par1.4', 'g_Par1.5', 'g_Par1.6', 'g_Par1.15'
+]
+
+G_PARNEW_BIT_TAGS = [
+    'g_ParNew.0', 'g_ParNew.1', 'g_ParNew.2', 'g_ParNew.3', 'g_ParNew.4', 'g_ParNew.5', 'g_ParNew.6', 'g_ParNew.7',
+    'g_ParNew.8', 'g_ParNew.9', 'g_ParNew.10', 'g_ParNew.11', 'g_ParNew.12', 'g_ParNew.13', 'g_ParNew.14', 'g_ParNew.15',
+    'g_ParNew.16', 'g_ParNew.17', 'g_ParNew.19', 'g_ParNew.20', 'g_ParNew.21'
+]
+
+G_PARTEMP_BIT_TAGS = [
+    'g_parTemp.1', 'g_parTemp.2', 'g_parTemp.3', 'g_parTemp.5', 'g_parTemp.6', 'g_parTemp.7'
+]
+
+# Additional G Par bits
+G_PAR_ADDITIONAL_BITS = [
+    'g_Par.17', 'g_Par.16', 'g_Par.22', 'g_Par.23', 'g_Par.13', 'g_Par.14', 'g_Par.15'
+]
+
+# Combined list of all G Par bit tags
+ALL_G_PAR_BIT_TAGS = G_PAR_BIT_TAGS + G_PAR1_BIT_TAGS + G_PARNEW_BIT_TAGS + G_PARTEMP_BIT_TAGS + G_PAR_ADDITIONAL_BITS
+
 G_PAR_DESCRIPTIONS = {      # Bit descriptions for g_Par tag (0..31)
-    0: 'Pneumatic Roll Lift', 1: 'Webber Installed', 2: 'Disable Downstream Conveyor Interlock',
-    3: 'Printer Forward Sensor Disabled', 4: 'Not Used', 5: 'Disable OEE Starved Time Reporting',
-    6: 'Enable 3-Position Nip Valve', 7: 'Enable Auto Splice', 8: 'Use Extended Discharge Timer',
-    9: 'Bypass Guarding Fault', 10: 'Enable Machine Test Mode', 11: 'Enable Manual Bypass',
-    12: 'Disable Alarm Horn', 13: 'Enable Remote Start', 14: 'Enable Diagnostic Logging',
-    15: 'Enable Power Save Mode', 16: 'Enable Light Curtain Override', 17: 'Bypass Safety Interlock',
-    18: 'Allow Index During Alarm', 19: 'Enable Maintenance Mode', 20: 'Ignore Load Cell Faults',
-    21: 'Enable High-Speed Mode', 22: 'Use Alternative Recipe Logic', 23: 'Bypass Printer Faults',
-    24: 'Enable Label Verification', 25: 'Ignore Film Tracking Sensor', 26: 'Use Legacy Motion Control',
-    27: 'Enable Secondary Safety Check', 28: 'Disable Zero Speed Check', 29: 'Enable Slow Start Feature',
-    30: 'Use Backup PLC Settings', 31: 'Force E-Stop Override',
+    0: 'FIFE Control - ON = Enable External Console, OFF = Enable PLC/HMI Console',
+    1: 'Nip Roller Sensors - ON = Use Advance Sensor, OFF = Use Retracted Sensor',
+    2: 'Webber Label Applicator Installed',
+    3: 'Conveyor Tote Starved Sensor - ON=Input ON when Tote Not Present, OFF=Input ON when Tote Present',
+    4: 'Slide Tote Starved Sensor - ON=Input ON when Tote Not Present, OFF=Input ON when Tote Present',
+    5: 'OEE Starved Time Reporting - ON=Disabled, OFF=Enabled',
+    6: 'Monitor OEE EVENT FIFO, ONLY FOR Pack engineer, do not turn it ON',
+    7: 'Downstream Conveyor Interlock - ON = Disabled, OFF = Enabled',
+    8: 'Not Used', 9: 'No Printer Mode', 10: 'Not Used',
+    11: 'Disable Light Curtain interlock to Label Applicator Tamp Head - ON=Disabled',
+    12: 'Enable HMI Variable Length Control ON = Enabled',
+    13: '24Q Package Film Installed', 14: '30Q Package Film Installed', 15: '36Q Package Film Installed',
+    16: 'Poly Package Film Installed', 17: 'Paper Package Film installed',
+    18: 'Ultrasonic URF calculation modes - ON=V1.0 (original), OFF=V1.1 (new)',
+    19: 'Enable Front Nip Roller Feed in Forward Direction (pre 2021 Machines)',
+    20: 'Dual Seal Jaw Servos, IFM AL1122 IOLink Master, Horizontal Seal Cooling Nozzles, Upper Clamp Cylinders, Spring Jaw Compliance. Incompatible w/ External Web Guide Controller',
+    21: 'Dual Seal Jaw Servos, IFM AL1122 IOLink Master, Horizontal Cooling Nozzles, Upper Clamp Cylinders, Pneumatic Jaw Compliance. Incompatible w/ External Web Guide Controller',
+    22: 'EU 36Q Package Paper Installed', 23: 'Not Used',
+    24: 'Gripper tension at Bag Release Position Enabled (controlled by config)',
+    25: 'PillPack mode enabled',
+    26: 'On = AL1422 installed / AL1122 Inhibited, Off = AL1122 installed / AL1422 inhibited',
+    27: 'SPA', 28: 'On = Lidar Installed / Off = Hor. Seal Jaw Laser Detector Sensor Installed',
+    29: 'Commissioning Mode - Do Not Use for Production - ON=Dry Cycle Mode Active',
+    30: 'SPA Integration Mode - ON=Integrated, OFF=Stand-Alone',
+    31: 'Commissioning Mode - Do Not Use for Production - ON=Commission Mode Active',
 }
 
-G_PAR1_DESCRIPTIONS = {     # Bit descriptions for g_Par1 tag (examples)
-    0: 'EU Paper Mode', 1: 'Jaw auto seal pressure adjustment',
+G_PAR1_DESCRIPTIONS = {     # Bit descriptions for g_Par1 tag
+    0: 'EU Paper Mode',
+    1: 'Jaw auto seal pressure adjustment',
     2: 'Temporary fix for nip roller until safety code is fixed',
-    3: 'Enable/disable FIFE auto/manual mode', 4: 'Reduce speed for gripper 70%',
-    5: 'Pregessis paper testing', 6: 'Nip Roller Inrush Current Monitor for Low Roll Detection',
+    3: 'temporary, able and disable fife auto/manual mode functionality',
+    4: 'Reduce speed for for gripper 70%',
+    5: 'Pregessis paper testing',
+    6: 'Nip Roller Inrush Current Monitor for Low Roll Detection',
+    15: 'Delay stop of the smartpac downstream',
 }
 
-G_PARNEW_DESCRIPTIONS = {   # Bit descriptions for g_ParNew tag (selected bits)
-    0: 'Vision test active', 1: 'Variable Bag length test active',
-    2: 'Sealing Process Issue detected, divert to KO', 3: 'Vertical seal clearance active',
-    4: 'Paper Type Georgia Pacific - Enabled', 5: 'Paper Type Pregis - Enabled',
-    6: 'Horizontal & Vertical Seal Sensor test', 7: 'Tall item Ultrasonic value correction Enabled',
-    8: 'Inhibit Sealing by ASIN Sensors', 9: 'Horizontal Seal Sensor check for increasing bag size',
-    10: 'Disable Bag gripper, JawSeqCoolingRequest', 11: 'Copy 50 last PACK, SLAM messages',
-    12: 'Bypass the vertical keep out area warning', 13: 'Low Sealing Force Process failure',
-    14: 'Servo speed ramp for cold start', 15: 'Commissioning Mode / Dry Cycle Mode',
-    20: 'Dry cycling 16$Q bags', 21: 'Use 2 new top rear ultrasonics for 36$Q',
+G_PARNEW_DESCRIPTIONS = {   # Bit descriptions for g_ParNew tag
+    0: 'Vision test active',
+    1: 'Variable Bag length test active (ON - Active, OFF- Not active)',
+    2: 'Sealing Process Issue detected, divert to KO',
+    3: 'Vertical seal clearance active',
+    4: 'Paper Type Georgia Pacific - Enabled',
+    5: 'Paper Type Pregis - Enabled',
+    6: 'Horizontal & Vertical Seal Sensor test',
+    7: 'Tall item Ultrasonic value correction Enabled',
+    8: 'Inhibit Sealing by ASIN Sensors (ON - Sealing inhibited, OFF- KO after sealing)',
+    9: 'Horizontal Seal Sensor check for increasing bag size (ON - Horizontal sensor, OFF- Product inside bag)',
+    10: 'OFF - To disable Bag gripper (pocket stationary output), JawSeqCoolingRequest',
+    11: 'FOR TESTING - To Copy 50 last PACK, SLAM messages',
+    12: 'To bypass the vertical keep out area warning (ON - NOT bypassed, OFF - Bypassed)',
+    13: 'Low Sealing Force Process failure - ON - Enabled, OFF- Disabled',
+    14: 'Servo speed ramp for cold start',
+    15: 'Commissioning Mode - Do Not Use for Production - OFF = Dry Cycle Mode Active But Paper Mode OFF',
+    16: 'New_Reject_Flap_Installed (no extended function)',
+    17: 'BrownItemDetection (ON - Active, OFF- Not active)',
+    19: 'Gripper pull tension release - ON = Split into first and final, OFF = Use entire distance',
+    20: 'For dry cycling 16Q bags',
+    21: 'ON = 2 new top rear ultrasonics for 36Q along with existing 2 top ultrasonics code, OFF = Only existing 2 top ultrasonics code is used',
 }
 
-G_PARTEMP_DESCRIPTIONS = {  # Bit descriptions for g_parTemp tag (selected bits)
-    1: 'Disable OEE Starved time reporting', 2: 'Disable takeaway and reject conveyor jams stopping machine',
-    3: 'Allow disabling tamp interlock to light curtain', 5: 'Allow downstream into running timer > 15 sec',
-    6: 'Enable 2 Bag Mode', 7: 'Disable all takeaway and reject jam alarming',
+G_PARTEMP_DESCRIPTIONS = {  # Bit descriptions for g_parTemp tag - Temporary Feature Rollback
+    1: '2021-11-03 - Disable OEE Starved time reporting',
+    2: '2021-10-18 - disable takeaway and reject conveyor jams stopping machine',
+    3: '2021-10-18 - Allow disabling of tamp interlock to light curtain',
+    5: '2021-10-27 - Allow downstream into running timer to be set higher than 15 seconds',
+    6: '2021-10-29 - Enable 2 Bag Mode',
+    7: '2021-11-03 - Disable all takeaway and reject jam alarming',
 }
 
 SAFETY_TAGS = [             # Safety and E-Stop tag paths to read
@@ -325,23 +388,46 @@ def run_program2_io_validation(target_ip: str) -> None:
     with PLC() as comm:                                                           # Open pylogix PLC session
         comm.IPAddress = target_ip                                                # Set target IP
 
-        tag_map = {                                                               # Tag -> bit-description map
-            'g_Par': G_PAR_DESCRIPTIONS,
-            'g_Par1': G_PAR1_DESCRIPTIONS,
-            'g_ParNew': G_PARNEW_DESCRIPTIONS,
-            'g_parTemp': G_PARTEMP_DESCRIPTIONS,
-        }
-
-        all_gpar_on: Dict[str, List[str]] = {}                                    # Results per tag
-
-        for tag, descs in tag_map.items():                                        # Loop tags
-            result = comm.Read(tag)                                               # Read tag value
-            if result.Status != 'Success':                                        # Check read status
+        # Read individual G Par bit tags directly
+        all_gpar_on: Dict[str, List[str]] = {}                                    # Results per tag group
+        
+        # Read all G Par bit tags at once
+        print("Reading G Par bit tags...")
+        gpar_results = comm.Read(ALL_G_PAR_BIT_TAGS)                              # Read all bit tags
+        
+        # Organize results by tag group
+        gpar_bits_on = []
+        gpar1_bits_on = []
+        gparnew_bits_on = []
+        gpartemp_bits_on = []
+        
+        for i, (tag, result) in enumerate(zip(ALL_G_PAR_BIT_TAGS, gpar_results)):
+            if result.Status == 'Success' and result.Value:
+                # Extract bit number and description
+                if tag.startswith('g_Par.') and not tag.startswith('g_Par1') and not tag.startswith('g_ParNew'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PAR_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpar_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_Par1.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PAR1_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpar1_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_ParNew.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PARNEW_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gparnew_bits_on.append(f"Bit {bit_num}: {desc}")
+                elif tag.startswith('g_parTemp.'):
+                    bit_num = int(tag.split('.')[1])
+                    desc = G_PARTEMP_DESCRIPTIONS.get(bit_num, f'Bit {bit_num}')
+                    gpartemp_bits_on.append(f"Bit {bit_num}: {desc}")
+            elif result.Status != 'Success':
                 print(f"Failed to read {tag}: {result.Status}")
-                continue
-            value = result.Value                                                  # Tag integer value
-            bits = [f"Bit {b}: {d}" for b, d in descs.items() if value & (1 << b)]# On bits only
-            all_gpar_on[tag] = bits                                               # Store list
+        
+        # Store results
+        all_gpar_on['g_Par'] = gpar_bits_on
+        all_gpar_on['g_Par1'] = gpar1_bits_on
+        all_gpar_on['g_ParNew'] = gparnew_bits_on
+        all_gpar_on['g_parTemp'] = gpartemp_bits_on
 
         safety_results = comm.Read(SAFETY_TAGS)                                   # Read safety tags
         interlock_result = comm.Read(INTERLOCK_TAG)                               # Read interlock tag

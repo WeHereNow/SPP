@@ -1,0 +1,6 @@
+2025-10-01 19:19:41,574 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-10-01 19:19:41,574 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-10-01 20:02:54,032 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-10-01 20:02:54,032 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
+2025-10-01 20:15:25,791 - PLCVerifier - INFO - info:107 - Verifying PLC at 11.200.0.10
+2025-10-01 20:15:25,791 - PLCVerifier - ERROR - error:113 -   ✗ Error verifying PLC: pylogix is not installed. Please run: pip install pylogix
