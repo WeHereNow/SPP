@@ -1,0 +1,92 @@
+BUILD INSTRUCTIONS FOR WINDOWS EXECUTABLE
+==========================================
+
+This toolkit needs to be built on a Windows machine to create the .exe file.
+
+PREREQUISITES:
+--------------
+1. Windows 7 or later
+2. Python 3.7 or later installed (download from python.org)
+3. Internet connection for downloading dependencies
+
+AUTOMATED BUILD (Recommended):
+------------------------------
+1. Copy all files to a Windows machine
+2. Double-click: build_windows_exe.bat
+3. Wait for the build to complete
+4. The final package will be: SPP_Toolkit_Windows.zip
+
+MANUAL BUILD (Alternative):
+---------------------------
+1. Open Command Prompt (cmd.exe)
+2. Navigate to the toolkit directory
+3. Install dependencies:
+   pip install pylogix python-docx pandas matplotlib reportlab cryptography
+   pip install pyinstaller
+
+4. Build the executable:
+   pyinstaller spp_toolkit.spec --clean
+
+5. The executable will be in: dist\SPP_Toolkit.exe
+
+6. Create release package:
+   - Create a folder called "release"
+   - Copy dist\SPP_Toolkit.exe to release\
+   - Copy requirements.txt to release\
+   - Copy README.txt to release\
+   - Copy RUN_TOOLKIT.bat to release\
+
+7. Create ZIP archive:
+   - Right-click the "release" folder
+   - Select "Send to" -> "Compressed (zipped) folder"
+   - Rename to: SPP_Toolkit_Windows.zip
+
+WHAT GETS BUNDLED:
+------------------
+The executable includes:
+- All Python modules (cognex_validation, config, faults_warnings, etc.)
+- All dependencies (pylogix, python-docx, pandas, etc.)
+- Tkinter GUI framework
+- All necessary DLLs and runtime files
+
+FILE STRUCTURE:
+---------------
+After building, you'll have:
+SPP_Toolkit_Windows.zip
+  ├── SPP_Toolkit.exe       (Main application)
+  ├── RUN_TOOLKIT.bat        (Launcher script)
+  ├── README.txt             (User documentation)
+  └── requirements.txt       (Dependency reference)
+
+TROUBLESHOOTING:
+----------------
+1. "Python not found"
+   - Install Python from python.org
+   - Make sure to check "Add Python to PATH" during installation
+
+2. "pip not found"
+   - Reinstall Python with pip option enabled
+
+3. Build fails with import errors
+   - Run: pip install --upgrade -r requirements.txt
+
+4. Antivirus blocks the build
+   - Temporarily disable antivirus or add exception for the build folder
+
+5. Executable doesn't run
+   - Make sure all dependencies installed correctly
+   - Try running from command prompt to see error messages
+
+LINUX CROSS-COMPILATION NOTE:
+------------------------------
+PyInstaller cannot cross-compile from Linux to Windows.
+The build MUST be performed on a Windows machine.
+This is a PyInstaller limitation, not a toolkit limitation.
+
+NEXT STEPS:
+-----------
+After building:
+1. Test the executable on Windows
+2. Distribute the ZIP file to users
+3. Users only need to extract and run SPP_Toolkit.exe
+4. No Python installation required on user machines!
