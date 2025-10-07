@@ -1,0 +1,25 @@
+SPP All-In-One Toolkit
+Version: 2.0.0
+Release Date: October 7, 2025
+Platform: Windows 10/11 (64-bit)
+
+Build Information:
+- Enhanced security features
+- Input validation and sanitization
+- Improved thread management
+- Better error handling
+- Production-ready release
+
+Components:
+- Network Validation
+- PLC Validation & Verification
+- E-Stop Monitoring
+- Cognex Vision System Management
+- Faults & Warnings Processing
+
+Required Dependencies:
+- Python 3.8+
+- pylogix >= 1.4.0
+- python-docx >= 0.8.11
+
+For support, see README.md
