@@ -1,0 +1,100 @@
+================================================================================
+  SPP ALL-IN-ONE TOOLKIT 2.0 - QUICK START GUIDE
+================================================================================
+
+STEP 1: INSTALLATION
+--------------------
+1. Extract the ZIP file to a folder (e.g., C:\SPP_Toolkit)
+2. If Python is NOT installed:
+   - Run INSTALL.bat (it will guide you)
+   - OR manually install Python from python.org
+3. If Python IS installed:
+   - Double-click INSTALL.bat to install dependencies
+   - This only needs to be done once
+
+STEP 2: RUNNING THE TOOLKIT
+----------------------------
+1. Double-click SPP_Toolkit.bat
+2. The application window will open
+3. That's it!
+
+STEP 3: BASIC USAGE
+-------------------
+
+FOR NETWORK TESTING:
+1. Click "Network Validation" tab
+2. Click "Run Validation" button
+3. Wait for results
+4. Click "Export CSV" to save
+
+FOR PLC VALIDATION:
+1. Click "PLC Validation" tab
+2. Enter PLC IP (usually 11.200.0.10)
+3. Click "Run Validation"
+4. View all PLC parameters
+
+FOR E-STOP MONITORING:
+1. Click "E-Stop Monitor" tab
+2. Enter PLC IP
+3. Click "Start Monitoring"
+4. Watch for state changes
+5. Click "Stop Monitoring" when done
+
+FOR COGNEX DEVICES:
+1. Click "Cognex Validation" tab
+2. Browse for .cfg files
+3. Click "Run Backup & Upload"
+4. System backs up and uploads if needed
+
+TROUBLESHOOTING
+---------------
+
+Problem: "Python is not installed"
+Solution: 
+  1. Download Python from https://www.python.org/downloads/
+  2. During installation, CHECK "Add Python to PATH"
+  3. Run INSTALL.bat again
+
+Problem: "Cannot connect to PLC"
+Solution:
+  1. Check PLC is powered on
+  2. Check network cable connected
+  3. Verify IP address (usually 11.200.0.10)
+  4. Use "Test IP" button in PLC tab
+  5. Use "Diagnose Connection" for details
+
+Problem: Application crashes
+Solution:
+  1. Close and restart
+  2. Check logs in logs/ folder
+  3. Make sure all connections are stopped before closing
+
+KEYBOARD SHORTCUTS
+------------------
+Ctrl+N = Network tab
+Ctrl+P = PLC tab
+Ctrl+E = E-Stop tab
+Ctrl+C = Cognex tab
+Ctrl+V = Verification tab
+Ctrl+F = Faults tab
+Ctrl+S = Settings tab
+F5     = Refresh
+
+IMPORTANT SAFETY NOTES
+----------------------
+1. Always stop E-Stop monitoring before closing
+2. Review Cognex backups before uploading
+3. Do not interrupt PLC operations
+4. Keep backups of all configuration files
+5. Close application properly (X button, not force close)
+
+GETTING HELP
+------------
+1. Read README.md for detailed information
+2. Check log files in logs/ directory
+3. Use built-in diagnostic tools
+4. Contact system administrator
+
+================================================================================
+Version 2.0.0 | For Windows 10/11 | Industrial Automation Toolkit
+================================================================================

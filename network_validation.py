@@ -14,6 +14,7 @@ import threading
 try:
     from config import config
     from logger import get_logger, ProgressLogger
+    from input_validator import InputValidator
 except ImportError:
     # Fallback for when modules aren't available
     class MockConfig:
@@ -31,6 +32,11 @@ except ImportError:
     def get_logger(name, gui_widget=None):
         import logging
         return logging.getLogger(name)
+    
+    class InputValidator:
+        @staticmethod
+        def validate_ip_address(ip):
+            return True, ""
     
     class ProgressLogger:
         def __init__(self, logger, total_steps, description=""):
@@ -149,6 +155,14 @@ class NetworkValidator:
         """
         Enhanced ping with better error handling and response time tracking
         """
+        # Validate IP address
+        is_valid, error = InputValidator.validate_ip_address(ip)
+        if not is_valid:
+            return DeviceResult(
+                ip=ip, name=name, status="Invalid", 
+                error_message=f"Invalid IP: {error}", attempts=0
+            )
+        
         retries = retries or config.network.default_retries
         probes = probes or config.network.default_probes
         require = require or config.network.require_min_replies
@@ -230,8 +244,15 @@ class NetworkValidator:
             
             progress.complete("Network validation")
         
-        # Sort results by IP address for consistent output
-        self.results.sort(key=lambda x: ipaddress.ip_address(x.ip))
+        # Sort results by IP address for consistent output (with error handling)
+        def safe_ip_sort(device_result):
+            try:
+                return ipaddress.ip_address(device_result.ip)
+            except ValueError:
+                # Return max IP for invalid addresses (sort them to the end)
+                return ipaddress.ip_address('255.255.255.255')
+        
+        self.results.sort(key=safe_ip_sort)
         return self.results
     
     def generate_report(self, results: List[DeviceResult]) -> str:

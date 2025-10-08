@@ -14,6 +14,7 @@ from dataclasses import dataclass
 try:
     from config import config
     from logger import get_logger, ProgressLogger
+    from input_validator import InputValidator
 except ImportError:
     # Fallback configuration
     class MockConfig:
@@ -32,6 +33,17 @@ except ImportError:
     def get_logger(name, gui_widget=None):
         import logging
         return logging.getLogger(name)
+    
+    class InputValidator:
+        @staticmethod
+        def validate_ip_address(ip):
+            return True, ""
+        @staticmethod
+        def validate_file_path(file_path, must_exist=False, allowed_extensions=None):
+            return True, ""
+        @staticmethod
+        def sanitize_dmcc_command(command):
+            return True, command, ""
     
     class ProgressLogger:
         def __init__(self, logger, total_steps, description=""):
@@ -159,10 +171,20 @@ class CognexValidator:
     
     def dmcc_send(self, sock: socket.socket, line: str) -> None:
         """Send one DMCC command line terminated with CRLF"""
-        sock.sendall((line + "\r\n").encode("utf-8"))
+        # Validate command before sending
+        is_valid, sanitized_cmd, error = InputValidator.sanitize_dmcc_command(line)
+        if not is_valid:
+            raise ValueError(f"Invalid DMCC command: {error}")
+        
+        sock.sendall((sanitized_cmd + "\r\n").encode("utf-8"))
     
     def dmcc_backup(self, ip: str) -> bytes:
         """Connect to a Cognex reader and return bytes from DEVICE.BACKUP"""
+        # Validate IP address
+        is_valid, error = InputValidator.validate_ip_address(ip)
+        if not is_valid:
+            raise ValueError(f"Invalid IP address: {error}")
+        
         with socket.create_connection((ip, config.cognex.telnet_port), 
                                     timeout=config.cognex.connect_timeout) as s:
             try:
@@ -178,13 +200,30 @@ class CognexValidator:
     
     def build_config_load_bytes(self, cfg_path: str) -> bytes:
         """Build the CONFIG.LOAD payload"""
+        # Validate file path
+        is_valid, error = InputValidator.validate_file_path(
+            cfg_path, must_exist=True, allowed_extensions=['.cfg']
+        )
+        if not is_valid:
+            raise ValueError(f"Invalid config file: {error}")
+        
         with open(cfg_path, "rb") as f:
             cfg = f.read()
+        
+        # Validate file size
+        if len(cfg) > config.cognex.max_backup_bytes:
+            raise ValueError(f"Config file too large: {len(cfg)} bytes (max {config.cognex.max_backup_bytes})")
+        
         header = f"||>CONFIG.LOAD {len(cfg)}\r\n".encode("utf-8")
         return header + cfg
     
     def push_config(self, ip: str, load_bytes: bytes) -> None:
         """Send CONFIG.LOAD, then CONFIG.SAVE, REBOOT, and BEEP to the Cognex reader"""
+        # Validate IP address
+        is_valid, error = InputValidator.validate_ip_address(ip)
+        if not is_valid:
+            raise ValueError(f"Invalid IP address: {error}")
+        
         with socket.create_connection((ip, config.cognex.telnet_port), 
                                     timeout=config.cognex.connect_timeout) as s:
             try:

@@ -10,6 +10,8 @@ from tkinter import ttk, filedialog, messagebox
 import threading
 from typing import Dict, List, Optional
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+import atexit
 
 # Import our enhanced modules
 try:
@@ -267,6 +269,9 @@ class EnhancedApp(tk.Tk):
         self.logger = get_logger("SPPToolkit")
         self.logger.info("Starting SPP All-In-One Toolkit - Enhanced Version")
         
+        # Initialize thread pool executor for background tasks
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="spp_worker")
+        
         # Apply dark theme
         self.style = self._apply_dark_theme()
         
@@ -281,6 +286,10 @@ class EnhancedApp(tk.Tk):
         
         # Bind keyboard shortcuts
         self._bind_shortcuts()
+        
+        # Register cleanup on exit
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        atexit.register(self._cleanup)
         
         self.logger.info("Application initialized successfully")
     
@@ -811,12 +820,46 @@ class EnhancedApp(tk.Tk):
         def worker():
             try:
                 target(*args, **kwargs)
+            except ConnectionError as e:
+                self.logger.error(f"Connection error: {e}", exc_info=True)
+            except ValueError as e:
+                self.logger.error(f"Validation error: {e}", exc_info=True)
             except Exception as e:
-                self.logger.error(f"Thread error: {e}")
+                self.logger.error(f"Unexpected error: {e}", exc_info=True)
             finally:
                 self.after(0, lambda: button.configure(state=tk.NORMAL))
         
-        threading.Thread(target=worker, daemon=True).start()
+        # Submit to thread pool instead of creating daemon thread
+        future = self.executor.submit(worker)
+        return future
+    
+    def _cleanup(self):
+        """Cleanup resources on exit"""
+        try:
+            self.logger.info("Cleaning up resources...")
+            
+            # Stop E-Stop monitoring if active
+            if hasattr(self, 'estop_monitoring_active') and self.estop_monitoring_active:
+                if hasattr(self, 'estop_validator') and self.estop_validator:
+                    self.estop_validator.stop_estop_monitoring()
+            
+            # Close PLC connections
+            if hasattr(self, 'plc_validator') and self.plc_validator:
+                self.plc_validator.close()
+            
+            # Shutdown thread pool
+            if hasattr(self, 'executor'):
+                self.executor.shutdown(wait=True, cancel_futures=False)
+            
+            self.logger.info("Cleanup complete")
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {e}", exc_info=True)
+    
+    def _on_closing(self):
+        """Handle window close event"""
+        self.logger.info("Application closing...")
+        self._cleanup()
+        self.destroy()
     
     def _show_confirmation_dialog(self, title: str, message: str, operation: str = "operation") -> bool:
         """Show confirmation dialog before running operations"""
